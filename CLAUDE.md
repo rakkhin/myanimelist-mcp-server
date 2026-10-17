@@ -21,7 +21,7 @@ uv run python scripts/anonymize_fixtures.py  # regenerate tests/fixtures/mal/
 
 ## Architecture
 
-- `main.py` creates `FastMCP("myanimelist", mask_error_details=True)` and calls `register_tools`.
+- `main.py`: `create_server()` builds `FastMCP("myanimelist", mask_error_details=True)` and calls `register_tools`; `main()` installs a SIGINT handler that logs to stderr (stdout is the protocol) and runs the server on stdio. Importing `main` has no side effects.
 - `tools/tools.py` defines every tool as a closure inside `register_tools`, sharing one `MALClient`.
   - Every tool carries `annotations=READ_ONLY` or `MUTATING` (`ToolAnnotations(read_only_hint=...)`); a test fails if one is unmarked.
   - Error boundary: tools catch only `_TOOL_ERRORS` (`MALAPIError`, `MALAuthError`, `httpx.HTTPError`, `ValueError`) and return `api_error_payload(e)`, which redacts secrets via `safe_error`. Any other exception is a bug and propagates to FastMCP, which logs it and masks the message.
