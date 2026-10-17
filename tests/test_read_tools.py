@@ -9,9 +9,11 @@ from utils.auth import MALAuthError
 from utils.mal_client import MALAPIError
 from utils.schemas import (
     AnimeFields,
+    AnimeRanking,
     AnimeStatus,
     AnimeStatusSort,
     MangaFields,
+    MangaRanking,
     MangaStatus,
     MangaStatusSort,
     Season,
@@ -69,6 +71,27 @@ class TestPublicTools:
 
         mal.client.get_public.assert_awaited_once_with(
             endpoint, params={"fields": fields}
+        )
+
+    @pytest.mark.parametrize(
+        ("name", "ranking_type", "endpoint"),
+        [
+            ("get_anime_ranking", AnimeRanking.AIRING, "/anime/ranking"),
+            ("get_manga_ranking", MangaRanking.NOVEL, "/manga/ranking"),
+        ],
+    )
+    def test_ranking_passes_type_as_query_parameter(
+        self, mal, name, ranking_type, endpoint
+    ):
+        mal.call(name, ranking_type=ranking_type, limit=600, offset=-1)
+
+        mal.client.get_public.assert_awaited_once_with(
+            endpoint,
+            params={
+                "ranking_type": ranking_type,
+                "limit": 500,
+                "offset": 0,
+            },
         )
 
     def test_seasonal_anime_passes_sort(self, mal):

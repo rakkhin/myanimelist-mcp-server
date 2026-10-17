@@ -156,6 +156,7 @@ def register_tools(mcp: FastMCP):
         """Fetch anime rankings from MyAnimeList."""
         try:
             params: dict[str, object] = {
+                "ranking_type": ranking_type,
                 "limit": clamp_limit(limit, 500),
                 "offset": max(0, offset),
             }
@@ -170,9 +171,7 @@ def register_tools(mcp: FastMCP):
                         AnimeFields.NSFW,
                     ],
                 )
-            return await client().get_public(
-                f"/anime/ranking/{ranking_type}", params=params
-            )
+            return await client().get_public("/anime/ranking", params=params)
         except _TOOL_ERRORS as e:
             return api_error_payload(e)
 
@@ -274,6 +273,7 @@ def register_tools(mcp: FastMCP):
         """Fetch manga rankings from MyAnimeList."""
         try:
             params: dict[str, object] = {
+                "ranking_type": ranking_type,
                 "limit": clamp_limit(limit, 500),
                 "offset": max(0, offset),
             }
@@ -288,9 +288,7 @@ def register_tools(mcp: FastMCP):
                         MangaFields.NSFW,
                     ],
                 )
-            return await client().get_public(
-                f"/manga/ranking/{ranking_type}", params=params
-            )
+            return await client().get_public("/manga/ranking", params=params)
         except _TOOL_ERRORS as e:
             return api_error_payload(e)
 
