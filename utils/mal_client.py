@@ -54,7 +54,9 @@ def clamp_limit(limit: int, maximum: int = 100) -> int:
 
 
 # Fields whose useful parts MAL only returns when requested as sub-fields.
-_FIELD_EXPANSIONS = {MangaFields.AUTHORS: "authors{first_name,last_name}"}
+_FIELD_EXPANSIONS: dict[Fields, str] = {
+    MangaFields.AUTHORS: "authors{first_name,last_name}"
+}
 
 
 def build_fields(
