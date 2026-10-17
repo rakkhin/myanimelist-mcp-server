@@ -11,12 +11,13 @@ uv sync                                    # install, including dev group (pytes
 uv run main.py                             # run the server on stdio
 uv run pytest -q                           # all tests
 uv run pytest -q tests/test_read_tools.py::TestPublicTools::test_forum_boards
-uv run pytest -q --cov=. --cov-report=term-missing
+uv run pytest -q --cov=. --cov-report=term-missing   # fails if total < 95%
+uv run python scripts/check_coverage.py              # after a --cov run: fails if any file < 95%
 uv run ruff format . && uv run ruff check .
 uv run python scripts/anonymize_fixtures.py  # regenerate tests/fixtures/mal/
 ```
 
-- Ruff line length is 79 (`.ruff.toml`). Coverage is kept above 95% per file.
+- Ruff line length is 79 (`.ruff.toml`). Coverage must be at least 95% in total (`fail_under` in `pyproject.toml`) and per file (`scripts/check_coverage.py`); CI enforces both.
 - Dependencies are managed with uv; the Dockerfile installs with `uv sync --frozen`, so update `uv.lock` (`uv lock`) whenever `pyproject.toml` changes. `fastmcp` is pinned to `~=4.0` on purpose.
 
 ## Git workflow

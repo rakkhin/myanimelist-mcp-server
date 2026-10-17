@@ -34,6 +34,10 @@ jobs:
           --junitxml=reports/junit.xml
           --cov=. --cov-report=xml:reports/coverage.xml --cov-report=term
 
+      - name: Check coverage per file
+        if: ${{ !cancelled() && hashFiles('.coverage') != '' }}
+        run: uv run --locked python scripts/check_coverage.py
+
       - name: Publish test report
         if: ${{ !cancelled() && hashFiles('reports/junit.xml') != '' }}
         uses: EnricoMi/publish-unit-test-result-action@7622c5bf3d112a72ab4fa3951c2aa5723d8ab92d # v2.25.0

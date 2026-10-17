@@ -24,6 +24,8 @@ constraint-dependencies = [
 ]
 
 [tool.coverage.report]
+# The total; scripts/check_coverage.py applies it to every file.
+fail_under = 95
 exclude_also = [
     'if __name__ == "__main__":',
 ]
