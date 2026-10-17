@@ -226,7 +226,7 @@ def register_tools(mcp: FastMCP):
             if nsfw:
                 params["nsfw"] = "true"
             return await client().get_public(
-                f"/users/{username}/animelist", params=params
+                f"/users/{quote(username, safe='')}/animelist", params=params
             )
         except Exception as e:
             return api_error_payload(e)
@@ -310,7 +310,7 @@ def register_tools(mcp: FastMCP):
             if nsfw:
                 params["nsfw"] = "true"
             return await client().get_public(
-                f"/users/{username}/mangalist", params=params
+                f"/users/{quote(username, safe='')}/mangalist", params=params
             )
         except Exception as e:
             return api_error_payload(e)

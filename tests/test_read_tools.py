@@ -118,6 +118,18 @@ class TestPublicTools:
             },
         )
 
+    @pytest.mark.parametrize(
+        ("name", "endpoint"),
+        [
+            ("get_anime_list", "/users/a%2Fb%3Fx%3D1/animelist"),
+            ("get_manga_list", "/users/a%2Fb%3Fx%3D1/mangalist"),
+        ],
+    )
+    def test_user_list_encodes_username_in_path(self, mal, name, endpoint):
+        mal.call(name, username="a/b?x=1")
+
+        assert mal.client.get_public.call_args.args == (endpoint,)
+
     def test_forum_boards(self, mal):
         mal.call("get_forum_boards")
 
