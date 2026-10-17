@@ -68,8 +68,8 @@ jobs:
           enable-cache: false
 
       # Checks the exact locked versions, dev group included, by their hashes.
-      # Records the result; the last step fails the job, after the report is
-      # published.
+      # Each check records its result and writes a report section; the last
+      # step fails the job, after the report is published.
       - name: Scan dependencies for known vulnerabilities
         id: audit
         shell: bash
@@ -85,10 +85,8 @@ jobs:
           packages=$(grep -c '^[A-Za-z0-9]' "$requirements")
 
           # pip-audit writes the findings file only when it finds something.
-          report="$RUNNER_TEMP/report.md"
           {
-            echo "<!-- pip-audit-report -->"
-            echo "## Dependency scan"
+            echo "### Vulnerabilities"
             echo
             if [ "$status" -eq 0 ]; then
               echo "No known vulnerabilities in the $packages locked packages."
@@ -98,19 +96,74 @@ jobs:
             else
               echo "The scan failed before producing a report; see the job log."
             fi
+          } > "$RUNNER_TEMP/report-audit.md"
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+
+      # Checks the runtime dependencies only, as the development tools are not
+      # distributed, against the license in pyproject.toml. licensecheck runs
+      # in the locked environment, so it reads the licenses of the locked
+      # versions; packages it shares with that environment show its versions.
+      # Platform-specific dependencies are checked only on this platform.
+      - name: Check dependency licenses
+        id: licenses
+        shell: bash
+        run: |
+          requirements="$RUNNER_TEMP/requirements-runtime.txt"
+          results="$RUNNER_TEMP/licensecheck.json"
+          uv export --frozen --format requirements-txt --no-emit-project \
+            --no-dev --output-file "$requirements"
+          status=0
+          uv run --locked --no-dev --with licensecheck==2026.0.8 \
+            licensecheck --requirements-paths "$requirements" --zero \
+            --format json --file "$results" || status=$?
+
+          # licensecheck writes the results file unless it fails to run.
+          {
+            echo "### Licenses"
+            echo
+            if [ ! -s "$results" ]; then
+              echo "The check failed before producing a report; see the job log."
+            elif [ "$status" -eq 0 ]; then
+              packages=$(jq '.packages | length' "$results")
+              echo "All $packages runtime packages have licenses compatible" \
+                "with the project license."
+            else
+              echo "Runtime packages with licenses incompatible with the" \
+                "project license:"
+              echo
+              echo "| Package | Version | License |"
+              echo "| --- | --- | --- |"
+              jq -r '.packages[] | select(.licenseCompat | not)
+                | "| \(.name) | \(.version) | \(.license | gsub("\\|"; "\\|")) |"' \
+                "$results"
+            fi
+          } > "$RUNNER_TEMP/report-licenses.md"
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+
+      - name: Build dependency scan report
+        id: report
+        shell: bash
+        run: |
+          report="$RUNNER_TEMP/report.md"
+          {
+            echo "<!-- dependency-scan-report -->"
+            echo "## Dependency scan"
+            echo
+            cat "$RUNNER_TEMP/report-audit.md"
+            echo
+            cat "$RUNNER_TEMP/report-licenses.md"
           } > "$report"
           cat "$report" >> "$GITHUB_STEP_SUMMARY"
-          echo "status=$status" >> "$GITHUB_OUTPUT"
           {
-            echo "report<<PIP_AUDIT_REPORT_EOF"
+            echo "report<<DEPENDENCY_SCAN_REPORT_EOF"
             cat "$report"
-            echo "PIP_AUDIT_REPORT_EOF"
+            echo "DEPENDENCY_SCAN_REPORT_EOF"
           } >> "$GITHUB_OUTPUT"
 
       - name: Publish dependency scan report
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
-          REPORT: ${{ steps.audit.outputs.report }}
+          REPORT: ${{ steps.report.outputs.report }}
         with:
           script: |
             // Keep one report comment per PR, found by its marker.
@@ -122,7 +175,7 @@ jobs:
               { owner, repo, issue_number },
             );
             const existing = comments.find(
-              (c) => c.user.type === "Bot" && c.body.includes("<!-- pip-audit-report -->"),
+              (c) => c.user.type === "Bot" && c.body.includes("<!-- dependency-scan-report -->"),
             );
             if (existing) {
               await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
@@ -130,8 +183,16 @@ jobs:
               await github.rest.issues.createComment({ owner, repo, issue_number, body });
             }
 
-      - name: Fail on known vulnerabilities
-        if: ${{ steps.audit.outputs.status != '0' }}
+      - name: Fail on findings
+        if: ${{ steps.audit.outputs.status != '0' || steps.licenses.outputs.status != '0' }}
+        env:
+          AUDIT_STATUS: ${{ steps.audit.outputs.status }}
+          LICENSES_STATUS: ${{ steps.licenses.outputs.status }}
         run: |
-          echo "::error::pip-audit reported known vulnerabilities, or the scan failed. See the dependency scan report."
+          if [ "$AUDIT_STATUS" != 0 ]; then
+            echo "::error::pip-audit reported known vulnerabilities, or the scan failed. See the dependency scan report."
+          fi
+          if [ "$LICENSES_STATUS" != 0 ]; then
+            echo "::error::licensecheck found incompatible licenses, or the check failed. See the dependency scan report."
+          fi
           exit 1

@@ -1,6 +1,7 @@
 [project]
 name = "myanimelist-mcp-server"
 version = "0.1.0"
+license = "MIT"
 description = "MCP server for MyAnimeList.net using the official API"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -32,3 +33,6 @@ exclude_also = [
 
 [tool.coverage.run]
 omit = ["tests/*"]
+
+[tool.licensecheck]
+zero = false
