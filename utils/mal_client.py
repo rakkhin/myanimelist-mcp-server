@@ -135,6 +135,9 @@ class MALClient:
             if response.status_code == 204 or not response.content:
                 return {"ok": True}
             body = response.json()
+            # Successful deletes answer "[]"; MAL's documentation shows null.
+            if body is None or body == []:
+                return {"ok": True}
             if isinstance(body, dict) and "error" in body:
                 err_msg = body.get("error") or body.get("message") or ""
                 raise MALAPIError(

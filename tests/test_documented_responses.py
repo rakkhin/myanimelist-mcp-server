@@ -1,8 +1,12 @@
-"""Mutating tools against the response samples in MAL's API documentation.
+"""List-changing tools against MAL's documented and observed responses.
 
-These tools change the user's list, so their fixtures in
-tests/fixtures/mal_docs/ come from the documentation, not from recordings.
-Each request below is the documentation's own curl example.
+These tools change the user's list, so the update samples in
+tests/fixtures/mal_docs/ come from MAL's API documentation, and each update
+request below is the documentation's own curl example. A round trip on a
+real list matched those samples exactly. It also showed that deletes answer
+200 with "[]" (the documentation shows null), even for a title that is not
+on the list, so the delete files hold that recorded body. MALClient turns it
+into {"ok": True}, which is what the delete tools receive.
 """
 
 import json
@@ -62,10 +66,10 @@ DELETE_TOOLS = [
 
 
 @pytest.mark.parametrize(("name", "id_arg", "label"), DELETE_TOOLS)
-def test_delete_treats_documented_null_response_as_success(
+def test_delete_reports_success_for_empty_client_result(
     mal, name, id_arg, label
 ):
-    mal.client.delete_authed.return_value = load(f"{name}.json")
+    mal.client.delete_authed.return_value = {"ok": True}
 
     result = mal.call_over_mcp(name, {id_arg: 21})
 
@@ -75,9 +79,7 @@ def test_delete_treats_documented_null_response_as_success(
 
 
 @pytest.mark.parametrize(("name", "id_arg", "label"), DELETE_TOOLS)
-def test_delete_reports_documented_404_for_title_not_on_list(
-    mal, name, id_arg, label
-):
+def test_delete_reports_http_errors_as_payload(mal, name, id_arg, label):
     request = httpx.Request("DELETE", "https://api.myanimelist.net/v2/x")
     mal.client.delete_authed.side_effect = httpx.HTTPStatusError(
         "404", request=request, response=httpx.Response(404, request=request)

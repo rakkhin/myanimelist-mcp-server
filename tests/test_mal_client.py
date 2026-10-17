@@ -1,4 +1,6 @@
 import asyncio
+import json
+from pathlib import Path
 from unittest.mock import AsyncMock, Mock, patch
 
 import httpx
@@ -338,3 +340,43 @@ def test_requests_are_spaced_by_rate_limit_delay(mal_http, monkeypatch):
 
     sleep.assert_awaited_once()
     assert 9 < sleep.call_args.args[0] <= 10
+
+
+def test_request_returns_ok_for_null_body(monkeypatch):
+    # MAL documents "null" as the body of a successful delete.
+    http = _mock_http(content=b"null")
+    http.request.return_value.json.return_value = None
+    monkeypatch.setattr(
+        "utils.mal_client.httpx.AsyncClient", Mock(return_value=http)
+    )
+
+    result = asyncio.run(
+        _client().delete_authed("/anime/1/my_list_status", "t")
+    )
+
+    assert result == {"ok": True}
+
+
+@pytest.mark.parametrize(
+    ("fixture", "endpoint"),
+    [
+        ("delete_myanimelist_item.json", "/anime/1/my_list_status"),
+        ("delete_mymangalist_item.json", "/manga/1/my_list_status"),
+    ],
+)
+def test_request_returns_ok_for_recorded_delete_body(
+    monkeypatch, fixture, endpoint
+):
+    # Recorded from MAL: deletes answer 200 with "[]", not the documented null.
+    body = (
+        Path(__file__).parent / "fixtures" / "mal_docs" / fixture
+    ).read_bytes()
+    http = _mock_http(content=body)
+    http.request.return_value.json.return_value = json.loads(body)
+    monkeypatch.setattr(
+        "utils.mal_client.httpx.AsyncClient", Mock(return_value=http)
+    )
+
+    result = asyncio.run(_client().delete_authed(endpoint, "t"))
+
+    assert result == {"ok": True}
