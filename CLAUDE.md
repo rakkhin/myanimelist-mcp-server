@@ -19,6 +19,11 @@ uv run python scripts/anonymize_fixtures.py  # regenerate tests/fixtures/mal/
 - Ruff line length is 79 (`.ruff.toml`). Coverage is kept above 95% per file.
 - Dependencies are managed with uv; the Dockerfile installs with `uv sync --frozen`, so update `uv.lock` (`uv lock`) whenever `pyproject.toml` changes. `fastmcp` is pinned to `~=4.0` on purpose.
 
+## Git workflow
+
+- The repo uses the feature branch workflow: work on a feature branch, never commit directly to the default branch (`master`), and merge through a pull request.
+- Prefer squash merges when completing a pull request into the default branch, so each feature branch lands as one commit.
+
 ## Architecture
 
 - `main.py`: `create_server()` builds `FastMCP("myanimelist", mask_error_details=True)` and calls `register_tools`; `main()` installs a SIGINT handler that logs to stderr (stdout is the protocol) and runs the server on stdio. Importing `main` has no side effects.
