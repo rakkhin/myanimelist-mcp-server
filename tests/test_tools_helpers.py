@@ -28,3 +28,20 @@ def test_parse_mal_news_rss_keeps_item_with_empty_link():
 
     assert result["articles"][0]["title"] == "Title only"
     assert result["articles"][0]["url"] is None
+
+
+def test_parse_mal_news_rss_reads_thumbnail_given_as_element_text():
+    # MAL puts the URL in the element text, not in a url attribute.
+    rss = """<rss version="2.0" xmlns:media="http://search.yahoo.com/mrss/">
+<channel>
+  <item>
+    <title>News</title>
+    <media:thumbnail> https://cdn.example/thumb.jpg </media:thumbnail>
+  </item>
+</channel></rss>"""
+
+    result = parse_mal_news_rss(rss, limit=5)
+
+    assert (
+        result["articles"][0]["thumbnail"] == "https://cdn.example/thumb.jpg"
+    )

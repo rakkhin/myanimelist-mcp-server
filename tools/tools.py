@@ -118,7 +118,12 @@ def parse_mal_news_rss(xml_text: str, limit: int) -> dict:
             desc_el.text if desc_el is not None and desc_el.text else None
         )
         published = pub_el.text if pub_el is not None and pub_el.text else None
-        thumbnail = thumb_el.get("url") if thumb_el is not None else None
+        thumbnail = None
+        if thumb_el is not None:
+            # Media RSS puts the URL in a url attribute; MAL uses the text.
+            thumbnail = (
+                thumb_el.get("url") or (thumb_el.text or "").strip() or None
+            )
 
         if title is None and url is None:
             continue
