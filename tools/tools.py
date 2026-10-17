@@ -8,6 +8,7 @@ from xml.etree import ElementTree
 import httpx
 from dotenv import load_dotenv
 from fastmcp import FastMCP
+from mcp.types import ToolAnnotations
 from pydantic import Field, ValidationError
 
 from utils.auth import (
@@ -36,6 +37,9 @@ _MAL_NEWS_RSS_URL = "https://myanimelist.net/rss/news.xml"
 _MAL_NEWS_LIMIT = 20
 _TRACKING_QUERY_RE = re.compile(r"[?&]_location=rss\b")
 _MEDIA_NS = "http://search.yahoo.com/mrss/"
+
+READ_ONLY = ToolAnnotations(read_only_hint=True)
+MUTATING = ToolAnnotations(read_only_hint=False)
 
 
 def anime_calendar_ical_url(username: str) -> str:
@@ -110,7 +114,7 @@ def register_tools(mcp: FastMCP):
         return access_token
 
     # Anime
-    @mcp.tool()
+    @mcp.tool(annotations=READ_ONLY)
     async def get_anime(q: str, limit: int = 10, offset: int = 0) -> dict:
         """Search anime on MyAnimeList."""
         try:
@@ -125,7 +129,7 @@ def register_tools(mcp: FastMCP):
         except Exception as e:
             return api_error_payload(e)
 
-    @mcp.tool()
+    @mcp.tool(annotations=READ_ONLY)
     async def get_anime_details(anime_id: int) -> dict:
         """Fetch anime details by MAL ID."""
         try:
@@ -136,7 +140,7 @@ def register_tools(mcp: FastMCP):
         except Exception as e:
             return api_error_payload(e)
 
-    @mcp.tool()
+    @mcp.tool(annotations=READ_ONLY)
     async def get_anime_ranking(
         ranking_type: AnimeRanking = AnimeRanking.ALL,
         limit: int = 10,
@@ -166,7 +170,7 @@ def register_tools(mcp: FastMCP):
         except Exception as e:
             return api_error_payload(e)
 
-    @mcp.tool()
+    @mcp.tool(annotations=READ_ONLY)
     async def get_seasonal_anime(
         season: Season,
         year: int,
@@ -200,7 +204,7 @@ def register_tools(mcp: FastMCP):
         except Exception as e:
             return api_error_payload(e)
 
-    @mcp.tool()
+    @mcp.tool(annotations=READ_ONLY)
     async def get_anime_list(
         username: str,
         status: AnimeStatus | None = None,
@@ -228,7 +232,7 @@ def register_tools(mcp: FastMCP):
             return api_error_payload(e)
 
     # Manga
-    @mcp.tool()
+    @mcp.tool(annotations=READ_ONLY)
     async def get_manga(q: str, limit: int = 10, offset: int = 0) -> dict:
         """Search manga on MyAnimeList."""
         try:
@@ -243,7 +247,7 @@ def register_tools(mcp: FastMCP):
         except Exception as e:
             return api_error_payload(e)
 
-    @mcp.tool()
+    @mcp.tool(annotations=READ_ONLY)
     async def get_manga_details(manga_id: int) -> dict:
         """Fetch manga details by MAL ID."""
         try:
@@ -254,7 +258,7 @@ def register_tools(mcp: FastMCP):
         except Exception as e:
             return api_error_payload(e)
 
-    @mcp.tool()
+    @mcp.tool(annotations=READ_ONLY)
     async def get_manga_ranking(
         ranking_type: MangaRanking = MangaRanking.ALL,
         limit: int = 100,
@@ -284,7 +288,7 @@ def register_tools(mcp: FastMCP):
         except Exception as e:
             return api_error_payload(e)
 
-    @mcp.tool()
+    @mcp.tool(annotations=READ_ONLY)
     async def get_manga_list(
         username: str,
         status: MangaStatus | None = None,
@@ -311,7 +315,7 @@ def register_tools(mcp: FastMCP):
         except Exception as e:
             return api_error_payload(e)
 
-    @mcp.tool()
+    @mcp.tool(annotations=READ_ONLY)
     async def get_my_anime_list(
         status: AnimeStatus | None = None,
         sort: AnimeStatusSort | None = None,
@@ -349,7 +353,7 @@ def register_tools(mcp: FastMCP):
         except Exception as e:
             return api_error_payload(e)
 
-    @mcp.tool()
+    @mcp.tool(annotations=READ_ONLY)
     async def get_my_manga_list(
         status: MangaStatus | None = None,
         sort: MangaStatusSort | None = None,
@@ -388,7 +392,7 @@ def register_tools(mcp: FastMCP):
             return api_error_payload(e)
 
     # Forum
-    @mcp.tool()
+    @mcp.tool(annotations=READ_ONLY)
     async def get_forum_boards() -> dict:
         """Fetch MyAnimeList forum boards."""
         try:
@@ -396,7 +400,7 @@ def register_tools(mcp: FastMCP):
         except Exception as e:
             return api_error_payload(e)
 
-    @mcp.tool()
+    @mcp.tool(annotations=READ_ONLY)
     async def get_forum_topic(
         topic_id: int, limit: int = 100, offset: int = 0
     ) -> dict:
@@ -412,7 +416,7 @@ def register_tools(mcp: FastMCP):
         except Exception as e:
             return api_error_payload(e)
 
-    @mcp.tool()
+    @mcp.tool(annotations=READ_ONLY)
     async def get_forum_topics(
         board_id: int | None = None,
         subboard_id: int | None = None,
@@ -445,27 +449,27 @@ def register_tools(mcp: FastMCP):
             return api_error_payload(e)
 
     # Auth/account helpers
-    @mcp.tool()
+    @mcp.tool(annotations=READ_ONLY)
     async def mal_auth_status() -> dict:
         """Check whether this MCP has stored MyAnimeList OAuth tokens."""
         return await get_auth_status()
 
-    @mcp.tool()
+    @mcp.tool(annotations=MUTATING)
     async def mal_auth_revoke() -> dict:
         """Clear locally stored MyAnimeList OAuth tokens."""
         return revoke_auth()
 
-    @mcp.tool()
+    @mcp.tool(annotations=MUTATING)
     async def mal_auth_login() -> dict:
         """Start a non-blocking MyAnimeList OAuth login and return the authorization URL."""
         return login_initiate()
 
-    @mcp.tool()
+    @mcp.tool(annotations=READ_ONLY)
     async def mal_auth_login_status() -> dict:
         """Check whether a MyAnimeList OAuth login is pending, completed, or not authenticated."""
         return await login_status()
 
-    @mcp.tool()
+    @mcp.tool(annotations=READ_ONLY)
     async def get_suggested_anime(limit: int = 10, offset: int = 0) -> dict:
         """Fetch suggested anime for the authenticated user."""
         try:
@@ -480,7 +484,7 @@ def register_tools(mcp: FastMCP):
         except Exception as e:
             return api_error_payload(e)
 
-    @mcp.tool()
+    @mcp.tool(annotations=READ_ONLY)
     async def get_user_profile(fields: str | None = None) -> dict:
         """Fetch the authenticated user's MyAnimeList profile. Use fields=anime_statistics to get stats."""
         try:
@@ -491,7 +495,7 @@ def register_tools(mcp: FastMCP):
         except Exception as e:
             return api_error_payload(e)
 
-    @mcp.tool()
+    @mcp.tool(annotations=MUTATING)
     async def delete_myanimelist_item(anime_id: int) -> dict:
         """Delete an anime from the authenticated user's MyAnimeList."""
         try:
@@ -502,7 +506,7 @@ def register_tools(mcp: FastMCP):
         except Exception as e:
             return api_error_payload(e)
 
-    @mcp.tool()
+    @mcp.tool(annotations=MUTATING)
     async def delete_mymangalist_item(manga_id: int) -> dict:
         """Delete a manga from the authenticated user's MyAnimeList."""
         try:
@@ -513,7 +517,7 @@ def register_tools(mcp: FastMCP):
         except Exception as e:
             return api_error_payload(e)
 
-    @mcp.tool()
+    @mcp.tool(annotations=MUTATING)
     async def update_myanimelist(
         anime_id: Annotated[
             int, Field(description="ID of the anime to update", ge=1)
@@ -579,7 +583,7 @@ def register_tools(mcp: FastMCP):
         except Exception as e:
             return api_error_payload(e)
 
-    @mcp.tool()
+    @mcp.tool(annotations=MUTATING)
     async def update_mymangalist(
         manga_id: Annotated[
             int, Field(description="ID of the manga to update", ge=1)
@@ -648,7 +652,7 @@ def register_tools(mcp: FastMCP):
         except Exception as e:
             return api_error_payload(e)
 
-    @mcp.tool()
+    @mcp.tool(annotations=READ_ONLY)
     async def get_upcoming_anime_episodes(
         username: str = "botafi", hours: int = 36
     ) -> dict:
@@ -667,7 +671,7 @@ def register_tools(mcp: FastMCP):
         except Exception as e:
             return api_error_payload(e)
 
-    @mcp.tool()
+    @mcp.tool(annotations=READ_ONLY)
     async def get_watch_queue(username: str = "botafi") -> dict:
         """Build a watch queue digest from the authenticated user's 'watching' anime list and Anime Calendar iCal data.
 
@@ -701,7 +705,7 @@ def register_tools(mcp: FastMCP):
         except Exception as e:
             return api_error_payload(e)
 
-    @mcp.tool()
+    @mcp.tool(annotations=READ_ONLY)
     async def get_mal_news(limit: int = 10) -> dict:
         """Fetch recent anime/manga news articles from MyAnimeList RSS feed."""
         try:

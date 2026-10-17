@@ -62,6 +62,35 @@ class TestToolRegistration:
         assert "get_mal_news" in names
         assert len(names) == 27
 
+    def test_every_tool_is_explicitly_marked_read_only_or_not(self):
+        from fastmcp import FastMCP
+
+        mcp = FastMCP("test")
+        with patch("tools.tools.MALClient") as mock_client_cls:
+            mock_client = AsyncMock()
+            mock_client_cls.return_value = mock_client
+            register_tools(mcp)
+
+        tools = asyncio.run(mcp.list_tools())
+        hints = {
+            t.name: t.annotations.read_only_hint if t.annotations else None
+            for t in tools
+        }
+        unmarked = {name for name, hint in hints.items() if hint is None}
+        assert unmarked == set()
+
+        read_only = {name for name, hint in hints.items() if hint}
+        mutating = {
+            "mal_auth_revoke",
+            "mal_auth_login",
+            "delete_myanimelist_item",
+            "delete_mymangalist_item",
+            "update_myanimelist",
+            "update_mymangalist",
+        }
+        assert read_only == hints.keys() - mutating
+        assert len(read_only) == 21
+
     def test_get_anime_list_status_is_optional_in_schema(self):
         from fastmcp import FastMCP
 
