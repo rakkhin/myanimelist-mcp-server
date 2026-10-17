@@ -662,7 +662,9 @@ class TestToolRegistration:
             assert "fields" in params
             assert "mean" in params["fields"]
 
-    def test_get_my_anime_list_fields_not_in_params_when_none(self):
+    def test_get_my_anime_list_requests_only_list_status_without_fields(
+        self,
+    ):
         from fastmcp import FastMCP
 
         mcp = FastMCP("test")
@@ -682,9 +684,11 @@ class TestToolRegistration:
             asyncio.run(tool.fn(None, None, 10, 0, None))
 
             params = mock_client.get_authed.call_args.kwargs["params"]
-            assert "fields" not in params
+            assert params["fields"] == "list_status"
 
-    def test_get_my_manga_list_fields_not_in_params_when_none(self):
+    def test_get_my_manga_list_requests_only_list_status_without_fields(
+        self,
+    ):
         from fastmcp import FastMCP
 
         mcp = FastMCP("test")
@@ -704,7 +708,7 @@ class TestToolRegistration:
             asyncio.run(tool.fn(None, None, 10, 0, None))
 
             params = mock_client.get_authed.call_args.kwargs["params"]
-            assert "fields" not in params
+            assert params["fields"] == "list_status"
 
     def test_get_my_anime_list_missing_token_error(self):
         from fastmcp import FastMCP
@@ -1128,10 +1132,7 @@ class TestGetWatchQueue:
             assert mock_client.get_authed.call_args.args[1] == "test-token"
             cal_params = mock_client.get_authed.call_args.kwargs["params"]
             assert cal_params["status"] == "watching"
-            assert (
-                cal_params["fields"]
-                == "list_status{num_episodes_watched},anime{id,title,num_episodes,status}"
-            )
+            assert cal_params["fields"] == "num_episodes,status,list_status"
 
     def test_get_watch_queue_missing_token_error(self):
         from fastmcp import FastMCP

@@ -48,6 +48,15 @@ READ_ONLY = ToolAnnotations(read_only_hint=True)
 MUTATING = ToolAnnotations(read_only_hint=False)
 
 
+# User list items hold the user's entry (status, score, progress) in
+# list_status, next to the title's node, and MAL only returns it on request.
+_LIST_STATUS = "list_status"
+
+
+def _with_list_status(node_fields: str | None) -> str:
+    return f"{node_fields},{_LIST_STATUS}" if node_fields else _LIST_STATUS
+
+
 def anime_calendar_ical_url(username: str) -> str:
     encoded_username = quote(username.strip(), safe="")
     return f"https://api.anime-calendar.com/v3/ical/myanimelist/{encoded_username}"
@@ -139,7 +148,7 @@ def register_tools(mcp: FastMCP):
     async def get_anime_details(anime_id: int) -> dict:
         """Fetch anime details by MAL ID."""
         try:
-            fields_param = ",".join(AnimeFields)
+            fields_param = build_fields(None, AnimeFields)
             return await client().get_public(
                 f"/anime/{anime_id}", params={"fields": fields_param}
             )
@@ -230,6 +239,7 @@ def register_tools(mcp: FastMCP):
                 params["sort"] = sort
             if nsfw:
                 params["nsfw"] = "true"
+            params["fields"] = _LIST_STATUS
             return await client().get_public(
                 f"/users/{quote(username, safe='')}/animelist", params=params
             )
@@ -256,7 +266,7 @@ def register_tools(mcp: FastMCP):
     async def get_manga_details(manga_id: int) -> dict:
         """Fetch manga details by MAL ID."""
         try:
-            fields_param = ",".join(MangaFields)
+            fields_param = build_fields(None, MangaFields)
             return await client().get_public(
                 f"/manga/{manga_id}", params={"fields": fields_param}
             )
@@ -313,6 +323,7 @@ def register_tools(mcp: FastMCP):
                 params["sort"] = sort
             if nsfw:
                 params["nsfw"] = "true"
+            params["fields"] = _LIST_STATUS
             return await client().get_public(
                 f"/users/{quote(username, safe='')}/mangalist", params=params
             )
@@ -338,8 +349,9 @@ def register_tools(mcp: FastMCP):
                 params["status"] = status
             if sort:
                 params["sort"] = sort
+            node_fields = None
             if fields:
-                params["fields"] = build_fields(
+                node_fields = build_fields(
                     fields,
                     [
                         AnimeFields.ID,
@@ -351,6 +363,7 @@ def register_tools(mcp: FastMCP):
                 )
             if nsfw:
                 params["nsfw"] = "true"
+            params["fields"] = _with_list_status(node_fields)
             return await client().get_authed(
                 "/users/@me/animelist", await token(), params=params
             )
@@ -376,8 +389,9 @@ def register_tools(mcp: FastMCP):
                 params["status"] = status
             if sort:
                 params["sort"] = sort
+            node_fields = None
             if fields:
-                params["fields"] = build_fields(
+                node_fields = build_fields(
                     fields,
                     [
                         MangaFields.ID,
@@ -389,6 +403,7 @@ def register_tools(mcp: FastMCP):
                 )
             if nsfw:
                 params["nsfw"] = "true"
+            params["fields"] = _with_list_status(node_fields)
             return await client().get_authed(
                 "/users/@me/mangalist", await token(), params=params
             )
@@ -679,7 +694,11 @@ def register_tools(mcp: FastMCP):
         plus aggregate totals. Latest released is unknown for titles that are neither finished nor found in the calendar feed."""
         try:
             access_token = await token()
-            list_fields = "list_status{num_episodes_watched},anime{id,title,num_episodes,status}"
+            list_fields = _with_list_status(
+                build_fields(
+                    [AnimeFields.NUM_EPISODES, AnimeFields.STATUS], []
+                )
+            )
             list_params = {
                 "status": "watching",
                 "limit": 1000,

@@ -53,14 +53,18 @@ def clamp_limit(limit: int, maximum: int = 100) -> int:
     return max(1, min(int(limit), maximum))
 
 
+# Fields whose useful parts MAL only returns when requested as sub-fields.
+_FIELD_EXPANSIONS = {MangaFields.AUTHORS: "authors{first_name,last_name}"}
+
+
 def build_fields(
     fields: Iterable[Fields] | None, default: Iterable[Fields]
 ) -> str:
-    deduped: list[str] = []
+    deduped: list[Fields] = []
     for field in [*(fields or []), *default]:
         if field not in deduped:
             deduped.append(field)
-    return ",".join(deduped)
+    return ",".join(_FIELD_EXPANSIONS.get(field, field) for field in deduped)
 
 
 @dataclass(frozen=True)

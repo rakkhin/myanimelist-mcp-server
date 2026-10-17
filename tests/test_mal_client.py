@@ -13,7 +13,7 @@ from utils.mal_client import (
     clamp_limit,
     safe_error,
 )
-from utils.schemas import AnimeFields
+from utils.schemas import AnimeFields, MangaFields
 
 
 def test_build_fields_uses_default_when_none_or_empty():
@@ -26,6 +26,12 @@ def test_build_fields_deduplicates_and_appends_default():
     fields = [AnimeFields.ID, AnimeFields.TITLE, AnimeFields.ID]
     default = [AnimeFields.MAIN_PICTURE, AnimeFields.ID]
     assert build_fields(fields, default) == "id,title,main_picture"
+
+
+def test_build_fields_requests_author_names():
+    fields = build_fields([MangaFields.AUTHORS], [MangaFields.ID])
+
+    assert fields == "authors{first_name,last_name},id"
 
 
 def test_clamp_limit_respects_minimum_and_maximum():

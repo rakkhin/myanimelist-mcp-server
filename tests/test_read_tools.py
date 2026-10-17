@@ -21,7 +21,10 @@ from utils.schemas import (
 )
 
 ALL_ANIME_FIELDS = ",".join(AnimeFields)
-ALL_MANGA_FIELDS = ",".join(MangaFields)
+ALL_MANGA_FIELDS = ",".join(
+    "authors{first_name,last_name}" if f == MangaFields.AUTHORS else f
+    for f in MangaFields
+)
 
 PUBLIC_TOOLS = [
     ("get_anime", {"q": "naruto"}),
@@ -144,6 +147,7 @@ class TestPublicTools:
                 "status": status,
                 "sort": sort,
                 "nsfw": "true",
+                "fields": "list_status",
             },
         )
 
@@ -216,7 +220,30 @@ class TestAuthenticatedTools:
         mal.client.get_authed.assert_awaited_once_with(
             endpoint,
             "test-token",
-            params={"limit": 10, "offset": 0, "nsfw": "true"},
+            params={
+                "limit": 10,
+                "offset": 0,
+                "nsfw": "true",
+                "fields": "list_status",
+            },
+        )
+
+    @pytest.mark.parametrize(
+        ("name", "field"),
+        [
+            ("get_my_anime_list", AnimeFields.MEAN),
+            ("get_my_manga_list", MangaFields.NUM_CHAPTERS),
+        ],
+    )
+    def test_own_list_appends_list_status_to_requested_fields(
+        self, mal, name, field
+    ):
+        mal.call(name, fields=[field])
+
+        fields = mal.client.get_authed.call_args.kwargs["params"]["fields"]
+        assert (
+            fields
+            == f"{field},id,title,alternative_titles,main_picture,nsfw,list_status"
         )
 
     def test_suggested_anime_clamps_limit_and_offset(self, mal):
@@ -351,7 +378,9 @@ class TestMangaFieldsOverMcp:
         mal.call_over_mcp(name, {"fields": ["num_chapters", "authors"]})
 
         params = getattr(mal.client, client_method).call_args.kwargs["params"]
-        assert params["fields"].split(",")[:2] == ["num_chapters", "authors"]
+        assert params["fields"].startswith(
+            "num_chapters,authors{first_name,last_name},"
+        )
 
     @pytest.mark.parametrize(("name", "client_method"), MANGA_FIELD_TOOLS)
     def test_manga_tools_reject_anime_only_fields(
