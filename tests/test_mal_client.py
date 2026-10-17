@@ -1,4 +1,6 @@
 import asyncio
+import json
+from pathlib import Path
 from unittest.mock import AsyncMock, Mock, patch
 
 import httpx
@@ -13,18 +15,25 @@ from utils.mal_client import (
     clamp_limit,
     safe_error,
 )
+from utils.schemas import AnimeFields, MangaFields
 
 
 def test_build_fields_uses_default_when_none_or_empty():
-    assert build_fields(None, ["id", "title"]) == "id,title"
-    assert build_fields([], ["id", "title"]) == "id,title"
+    default = [AnimeFields.ID, AnimeFields.TITLE]
+    assert build_fields(None, default) == "id,title"
+    assert build_fields([], default) == "id,title"
 
 
-def test_build_fields_deduplicates_and_rejects_bad_values():
-    assert build_fields(["id", "title", "id"], ["main_picture"]) == "id,title"
+def test_build_fields_deduplicates_and_appends_default():
+    fields = [AnimeFields.ID, AnimeFields.TITLE, AnimeFields.ID]
+    default = [AnimeFields.MAIN_PICTURE, AnimeFields.ID]
+    assert build_fields(fields, default) == "id,title,main_picture"
 
-    with pytest.raises(ValueError, match="Invalid field"):
-        build_fields(["id", "bad field"], ["title"])
+
+def test_build_fields_requests_author_names():
+    fields = build_fields([MangaFields.AUTHORS], [MangaFields.ID])
+
+    assert fields == "authors{first_name,last_name},id"
 
 
 def test_clamp_limit_respects_minimum_and_maximum():
@@ -43,9 +52,7 @@ def test_safe_error_does_not_include_response_body_or_secrets():
     assert "token=<redacted>" in err
 
 
-def test_mal_client_config_requires_client_id_for_public_calls(monkeypatch):
-    monkeypatch.delenv("MAL_CLIENT_ID", raising=False)
-
+def test_mal_client_config_requires_client_id_for_public_calls():
     with pytest.raises(ValueError, match="MAL_CLIENT_ID"):
         MALClientConfig.from_env(require_client_id=True)
 
@@ -206,3 +213,170 @@ class TestMALClientEmptyErrorDetection:
                 )
             )
             assert result["data"][0]["node"]["title"] == "Test"
+
+
+def _mock_http(status_code=200, content=b'{"data": []}', body=None):
+    response = Mock()
+    response.status_code = status_code
+    response.content = content
+    response.raise_for_status = Mock()
+    response.json = Mock(
+        return_value=body if body is not None else {"data": []}
+    )
+
+    http = AsyncMock()
+    http.__aenter__ = AsyncMock(return_value=http)
+    http.__aexit__ = AsyncMock(return_value=False)
+    http.request = AsyncMock(return_value=response)
+    return http
+
+
+@pytest.fixture
+def mal_http(monkeypatch):
+    http = _mock_http()
+    monkeypatch.setattr(
+        "utils.mal_client.httpx.AsyncClient", Mock(return_value=http)
+    )
+    return http
+
+
+def _client(client_id="test-id"):
+    return MALClient(
+        config=MALClientConfig(
+            client_id=client_id, api_url="https://api.test", rate_limit_delay=0
+        )
+    )
+
+
+class TestRequestHeadersAndMethods:
+    def test_public_get_sends_client_id(self, mal_http):
+        asyncio.run(_client().get_public("/anime", params={"q": "x"}))
+
+        mal_http.request.assert_awaited_once_with(
+            "GET",
+            "https://api.test/anime",
+            headers={"X-MAL-CLIENT-ID": "test-id"},
+            params={"q": "x"},
+            data=None,
+        )
+
+    def test_authed_get_sends_bearer_token_instead_of_client_id(
+        self, mal_http
+    ):
+        asyncio.run(_client().get_authed("/users/@me", "tok"))
+
+        mal_http.request.assert_awaited_once_with(
+            "GET",
+            "https://api.test/users/@me",
+            headers={"Authorization": "Bearer tok"},
+            params=None,
+            data=None,
+        )
+
+    def test_patch_sends_form_encoded_data(self, mal_http):
+        asyncio.run(
+            _client().patch_authed(
+                "/anime/1/my_list_status", "tok", data={"score": 9}
+            )
+        )
+
+        mal_http.request.assert_awaited_once_with(
+            "PATCH",
+            "https://api.test/anime/1/my_list_status",
+            headers={
+                "Authorization": "Bearer tok",
+                "Content-Type": "application/x-www-form-urlencoded",
+            },
+            params=None,
+            data={"score": 9},
+        )
+
+    def test_delete_uses_delete_method(self, mal_http):
+        asyncio.run(_client().delete_authed("/anime/1/my_list_status", "tok"))
+
+        assert mal_http.request.call_args.args == (
+            "DELETE",
+            "https://api.test/anime/1/my_list_status",
+        )
+
+    def test_public_request_without_client_id_fails_before_sending(
+        self, mal_http
+    ):
+        with pytest.raises(ValueError, match="MAL_CLIENT_ID is required"):
+            asyncio.run(_client(client_id=None).get_public("/anime"))
+
+        mal_http.request.assert_not_awaited()
+
+
+@pytest.mark.parametrize(("status_code", "content"), [(204, b""), (200, b"")])
+def test_request_returns_ok_for_empty_response(
+    monkeypatch, status_code, content
+):
+    http = _mock_http(status_code=status_code, content=content)
+    monkeypatch.setattr(
+        "utils.mal_client.httpx.AsyncClient", Mock(return_value=http)
+    )
+
+    result = asyncio.run(
+        _client().delete_authed("/anime/1/my_list_status", "t")
+    )
+
+    assert result == {"ok": True}
+    http.request.return_value.json.assert_not_called()
+
+
+def test_requests_are_spaced_by_rate_limit_delay(mal_http, monkeypatch):
+    sleep = AsyncMock()
+    monkeypatch.setattr("utils.mal_client.asyncio.sleep", sleep)
+    client = MALClient(
+        config=MALClientConfig(client_id="test-id", rate_limit_delay=10)
+    )
+
+    async def two_requests():
+        await client.get_public("/anime")
+        await client.get_public("/anime")
+
+    asyncio.run(two_requests())
+
+    sleep.assert_awaited_once()
+    assert 9 < sleep.call_args.args[0] <= 10
+
+
+def test_request_returns_ok_for_null_body(monkeypatch):
+    # MAL documents "null" as the body of a successful delete.
+    http = _mock_http(content=b"null")
+    http.request.return_value.json.return_value = None
+    monkeypatch.setattr(
+        "utils.mal_client.httpx.AsyncClient", Mock(return_value=http)
+    )
+
+    result = asyncio.run(
+        _client().delete_authed("/anime/1/my_list_status", "t")
+    )
+
+    assert result == {"ok": True}
+
+
+@pytest.mark.parametrize(
+    ("fixture", "endpoint"),
+    [
+        ("delete_myanimelist_item.json", "/anime/1/my_list_status"),
+        ("delete_mymangalist_item.json", "/manga/1/my_list_status"),
+    ],
+)
+def test_request_returns_ok_for_recorded_delete_body(
+    monkeypatch, fixture, endpoint
+):
+    # Recorded from MAL: deletes answer 200 with "[]", not the documented null.
+    body = (
+        Path(__file__).parent / "fixtures" / "mal_docs" / fixture
+    ).read_bytes()
+    http = _mock_http(content=body)
+    http.request.return_value.json.return_value = json.loads(body)
+    monkeypatch.setattr(
+        "utils.mal_client.httpx.AsyncClient", Mock(return_value=http)
+    )
+
+    result = asyncio.run(_client().delete_authed(endpoint, "t"))
+
+    assert result == {"ok": True}

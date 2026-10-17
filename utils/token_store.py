@@ -86,11 +86,13 @@ class TokenStore:
         flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
         fd = os.open(tmp_path, flags, stat.S_IRUSR | stat.S_IWUSR)
         try:
-            with os.fdopen(fd, "w", encoding="utf-8") as token_file:
-                token_file.write(json.dumps(asdict(tokens), indent=2))
+            token_file = os.fdopen(fd, "w", encoding="utf-8")
         except Exception:
+            # The file object never took ownership of fd, so close it here.
             os.close(fd)
             raise
+        with token_file:
+            token_file.write(json.dumps(asdict(tokens), indent=2))
         tmp_path.replace(self.path)
         try:
             os.chmod(self.path, stat.S_IRUSR | stat.S_IWUSR)

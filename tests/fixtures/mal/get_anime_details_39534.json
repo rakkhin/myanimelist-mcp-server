@@ -1,0 +1,242 @@
+{
+  "id": 39534,
+  "title": "Jibaku Shounen Hanako-kun",
+  "main_picture": {
+    "medium": "https://cdn.myanimelist.net/images/anime/1050/111687.jpg",
+    "large": "https://cdn.myanimelist.net/images/anime/1050/111687l.jpg"
+  },
+  "alternative_titles": {
+    "synonyms": [],
+    "en": "Toilet-Bound Hanako-kun",
+    "ja": "地縛少年花子くん"
+  },
+  "start_date": "2020-01-10",
+  "end_date": "2020-03-27",
+  "synopsis": "The famous Seven Mysteries that every school seems to have are a staple of Japanese urban legends. One of the most well-known of these tales is that of Hanako-san: the ghost of a young girl who haunts the school's bathrooms.\n\nKamome Academy has its own version of Hanako-san's legend. Rumors claim that if one successfully manages to summon Hanako-san, she will grant her summoner any wish. Lured by the gossip, many people have tried to call upon her, yet every attempt has failed. However, when Nene Yashiro, a girl hoping for romantic fortune, dares to summon Hanako-san, she discovers that the rumored \"girl\" is actually a boy!\n\nAfter a series of unfortunate events involving Yashiro's romantic desires, she is unwillingly entangled in the world of the supernatural, becoming Hanako-kun's assistant. Soon, she finds out about Hanako-kun's lesser-known duty: maintaining the fragile balance between mortals and apparitions.\n\n[Written by MAL Rewrite]",
+  "mean": 7.82,
+  "rank": 1138,
+  "popularity": 351,
+  "num_list_users": 701320,
+  "num_scoring_users": 348593,
+  "nsfw": "white",
+  "created_at": "2019-03-15T03:58:22+00:00",
+  "updated_at": "2024-03-18T20:31:33+00:00",
+  "media_type": "tv",
+  "status": "finished_airing",
+  "genres": [
+    {
+      "id": 23,
+      "name": "School"
+    },
+    {
+      "id": 27,
+      "name": "Shounen"
+    },
+    {
+      "id": 37,
+      "name": "Supernatural"
+    }
+  ],
+  "num_episodes": 12,
+  "start_season": {
+    "year": 2020,
+    "season": "winter"
+  },
+  "broadcast": {
+    "day_of_the_week": "friday",
+    "start_time": "01:58"
+  },
+  "source": "manga",
+  "average_episode_duration": 1455,
+  "rating": "pg_13",
+  "pictures": [
+    {
+      "medium": "https://cdn.myanimelist.net/images/anime/1453/101873.jpg",
+      "large": "https://cdn.myanimelist.net/images/anime/1453/101873l.jpg"
+    },
+    {
+      "medium": "https://cdn.myanimelist.net/images/anime/1999/102070.jpg",
+      "large": "https://cdn.myanimelist.net/images/anime/1999/102070l.jpg"
+    },
+    {
+      "medium": "https://cdn.myanimelist.net/images/anime/1022/104208.jpg",
+      "large": "https://cdn.myanimelist.net/images/anime/1022/104208l.jpg"
+    },
+    {
+      "medium": "https://cdn.myanimelist.net/images/anime/1700/104788.jpg",
+      "large": "https://cdn.myanimelist.net/images/anime/1700/104788l.jpg"
+    },
+    {
+      "medium": "https://cdn.myanimelist.net/images/anime/1050/111687.jpg",
+      "large": "https://cdn.myanimelist.net/images/anime/1050/111687l.jpg"
+    }
+  ],
+  "background": "Jibaku Shounen Hanako-kun was released on Blu-ray and DVD in two volumes from June 24, 2020, to July 29, 2020.",
+  "related_anime": [
+    {
+      "node": {
+        "id": 53924,
+        "title": "Jibaku Shounen Hanako-kun 2",
+        "main_picture": {
+          "medium": "https://cdn.myanimelist.net/images/anime/1878/146291.jpg",
+          "large": "https://cdn.myanimelist.net/images/anime/1878/146291l.jpg"
+        }
+      },
+      "relation_type": "sequel",
+      "relation_type_formatted": "Sequel"
+    },
+    {
+      "node": {
+        "id": 56425,
+        "title": "Houkago Shounen Hanako-kun",
+        "main_picture": {
+          "medium": "https://cdn.myanimelist.net/images/anime/1530/138031.jpg",
+          "large": "https://cdn.myanimelist.net/images/anime/1530/138031l.jpg"
+        }
+      },
+      "relation_type": "spin_off",
+      "relation_type_formatted": "Spin-off"
+    },
+    {
+      "node": {
+        "id": 57102,
+        "title": "Houkago Shounen Hanako-kun Part 2",
+        "main_picture": {
+          "medium": "https://cdn.myanimelist.net/images/anime/1910/144517.webp",
+          "large": "https://cdn.myanimelist.net/images/anime/1910/144517l.webp"
+        }
+      },
+      "relation_type": "spin_off",
+      "relation_type_formatted": "Spin-off"
+    }
+  ],
+  "related_manga": [],
+  "recommendations": [
+    {
+      "node": {
+        "id": 20507,
+        "title": "Noragami",
+        "main_picture": {
+          "medium": "https://cdn.myanimelist.net/images/anime/1886/128266.jpg",
+          "large": "https://cdn.myanimelist.net/images/anime/1886/128266l.jpg"
+        }
+      },
+      "num_recommendations": 26
+    },
+    {
+      "node": {
+        "id": 12445,
+        "title": "Tasogare Otome x Amnesia",
+        "main_picture": {
+          "medium": "https://cdn.myanimelist.net/images/anime/12/64435.webp",
+          "large": "https://cdn.myanimelist.net/images/anime/12/64435l.webp"
+        }
+      },
+      "num_recommendations": 14
+    },
+    {
+      "node": {
+        "id": 40908,
+        "title": "Kemono Jihen",
+        "main_picture": {
+          "medium": "https://cdn.myanimelist.net/images/anime/1258/108331.webp",
+          "large": "https://cdn.myanimelist.net/images/anime/1258/108331l.webp"
+        }
+      },
+      "num_recommendations": 6
+    },
+    {
+      "node": {
+        "id": 38256,
+        "title": "Magia Record: Mahou Shoujo Madoka☆Magica Gaiden",
+        "main_picture": {
+          "medium": "https://cdn.myanimelist.net/images/anime/1786/104783.webp",
+          "large": "https://cdn.myanimelist.net/images/anime/1786/104783l.webp"
+        }
+      },
+      "num_recommendations": 5
+    },
+    {
+      "node": {
+        "id": 861,
+        "title": "xxxHOLiC",
+        "main_picture": {
+          "medium": "https://cdn.myanimelist.net/images/anime/5/21858.jpg",
+          "large": "https://cdn.myanimelist.net/images/anime/5/21858l.jpg"
+        }
+      },
+      "num_recommendations": 4
+    },
+    {
+      "node": {
+        "id": 1281,
+        "title": "Gakkou no Kaidan",
+        "main_picture": {
+          "medium": "https://cdn.myanimelist.net/images/anime/1414/112029.jpg",
+          "large": "https://cdn.myanimelist.net/images/anime/1414/112029l.jpg"
+        }
+      },
+      "num_recommendations": 3
+    },
+    {
+      "node": {
+        "id": 38000,
+        "title": "Kimetsu no Yaiba",
+        "main_picture": {
+          "medium": "https://cdn.myanimelist.net/images/anime/1286/99889.jpg",
+          "large": "https://cdn.myanimelist.net/images/anime/1286/99889l.jpg"
+        }
+      },
+      "num_recommendations": 2
+    },
+    {
+      "node": {
+        "id": 14713,
+        "title": "Kamisama Hajimemashita",
+        "main_picture": {
+          "medium": "https://cdn.myanimelist.net/images/anime/3/85429.webp",
+          "large": "https://cdn.myanimelist.net/images/anime/3/85429l.webp"
+        }
+      },
+      "num_recommendations": 2
+    },
+    {
+      "node": {
+        "id": 5530,
+        "title": "Pandora Hearts",
+        "main_picture": {
+          "medium": "https://cdn.myanimelist.net/images/anime/4/75535.webp",
+          "large": "https://cdn.myanimelist.net/images/anime/4/75535l.webp"
+        }
+      },
+      "num_recommendations": 2
+    },
+    {
+      "node": {
+        "id": 11061,
+        "title": "Hunter x Hunter (2011)",
+        "main_picture": {
+          "medium": "https://cdn.myanimelist.net/images/anime/1337/99013.jpg",
+          "large": "https://cdn.myanimelist.net/images/anime/1337/99013l.jpg"
+        }
+      },
+      "num_recommendations": 2
+    }
+  ],
+  "studios": [
+    {
+      "id": 456,
+      "name": "Lerche"
+    }
+  ],
+  "statistics": {
+    "status": {
+      "watching": "56370",
+      "completed": "420151",
+      "on_hold": "26843",
+      "dropped": "30420",
+      "plan_to_watch": "167230"
+    },
+    "num_list_users": 701014
+  }
+}

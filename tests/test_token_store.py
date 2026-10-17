@@ -3,6 +3,9 @@ import os
 import stat
 import time
 from pathlib import Path
+from unittest.mock import Mock
+
+import pytest
 
 from utils.token_store import StoredTokens, TokenStore
 
@@ -85,7 +88,6 @@ def test_token_store_default_path_uses_hermes_home(
     monkeypatch, tmp_path: Path
 ):
     monkeypatch.setenv("HERMES_HOME", str(tmp_path / "hermes"))
-    monkeypatch.delenv("MAL_TOKEN_STORAGE_PATH", raising=False)
 
     path = TokenStore.default_path()
 
@@ -97,3 +99,57 @@ def test_token_store_env_path_overrides_default(monkeypatch, tmp_path: Path):
     monkeypatch.setenv("MAL_TOKEN_STORAGE_PATH", str(explicit))
 
     assert TokenStore.default_path() == explicit
+
+
+def _tokens() -> StoredTokens:
+    return StoredTokens(access_token="a", refresh_token="r", expires_at=1.0)
+
+
+def test_save_failure_raises_original_error(monkeypatch, tmp_path: Path):
+    store = TokenStore(tmp_path / "tokens.json")
+    monkeypatch.setattr(
+        "utils.token_store.json.dumps",
+        Mock(side_effect=TypeError("not serializable")),
+    )
+
+    with pytest.raises(TypeError, match="not serializable"):
+        store.save(_tokens())
+
+    assert store.load() is None
+
+
+def test_save_succeeds_when_permissions_cannot_be_changed(
+    monkeypatch, tmp_path: Path
+):
+    store = TokenStore(tmp_path / "tokens.json")
+    monkeypatch.setattr(
+        "utils.token_store.os.chmod", Mock(side_effect=PermissionError)
+    )
+
+    store.save(_tokens())
+
+    assert store.load() == _tokens()
+
+
+def test_clear_without_stored_tokens_does_nothing(tmp_path: Path):
+    store = TokenStore(tmp_path / "tokens.json")
+
+    store.clear()
+
+    assert store.load() is None
+
+
+def test_save_closes_descriptor_when_file_cannot_be_opened(
+    monkeypatch, tmp_path: Path
+):
+    store = TokenStore(tmp_path / "tokens.json")
+    close = Mock(wraps=os.close)
+    monkeypatch.setattr(
+        "utils.token_store.os.fdopen", Mock(side_effect=OSError("no fdopen"))
+    )
+    monkeypatch.setattr("utils.token_store.os.close", close)
+
+    with pytest.raises(OSError, match="no fdopen"):
+        store.save(_tokens())
+
+    close.assert_called_once()

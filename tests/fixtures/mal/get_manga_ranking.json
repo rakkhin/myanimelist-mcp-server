@@ -1,0 +1,118 @@
+{
+  "data": [
+    {
+      "node": {
+        "id": 2,
+        "title": "Berserk",
+        "main_picture": {
+          "medium": "https://cdn.myanimelist.net/images/manga/1/157897.jpg",
+          "large": "https://cdn.myanimelist.net/images/manga/1/157897l.jpg"
+        },
+        "authors": [
+          {
+            "node": {
+              "id": 1868,
+              "first_name": "Kentarou",
+              "last_name": "Miura"
+            },
+            "role": "Story & Art"
+          },
+          {
+            "node": {
+              "id": 49592,
+              "first_name": "",
+              "last_name": "Studio Gaga"
+            },
+            "role": "Art"
+          }
+        ],
+        "mean": 9.46,
+        "alternative_titles": {
+          "synonyms": [
+            "Berserk: The Prototype"
+          ],
+          "en": "Berserk",
+          "ja": "ベルセルク"
+        },
+        "nsfw": "white"
+      },
+      "ranking": {
+        "rank": 1
+      }
+    },
+    {
+      "node": {
+        "id": 1706,
+        "title": "JoJo no Kimyou na Bouken Part 7: Steel Ball Run",
+        "main_picture": {
+          "medium": "https://cdn.myanimelist.net/images/manga/3/179882.jpg",
+          "large": "https://cdn.myanimelist.net/images/manga/3/179882l.jpg"
+        },
+        "authors": [
+          {
+            "node": {
+              "id": 2619,
+              "first_name": "Hirohiko",
+              "last_name": "Araki"
+            },
+            "role": "Story & Art"
+          }
+        ],
+        "mean": 9.34,
+        "alternative_titles": {
+          "synonyms": [
+            "JoJo's Bizarre Adventure Part 7: Steel Ball Run",
+            "SBR"
+          ],
+          "en": "JoJo's Bizarre Adventure Part 7: Steel Ball Run",
+          "ja": "ジョジョの奇妙な冒険 Part7 STEEL BALL RUN"
+        },
+        "nsfw": "white"
+      },
+      "ranking": {
+        "rank": 2
+      }
+    },
+    {
+      "node": {
+        "id": 656,
+        "title": "Vagabond",
+        "main_picture": {
+          "medium": "https://cdn.myanimelist.net/images/manga/1/259070.jpg",
+          "large": "https://cdn.myanimelist.net/images/manga/1/259070l.jpg"
+        },
+        "authors": [
+          {
+            "node": {
+              "id": 1911,
+              "first_name": "Takehiko",
+              "last_name": "Inoue"
+            },
+            "role": "Story & Art"
+          },
+          {
+            "node": {
+              "id": 5760,
+              "first_name": "Eiji",
+              "last_name": "Yoshikawa"
+            },
+            "role": "Story"
+          }
+        ],
+        "mean": 9.27,
+        "alternative_titles": {
+          "synonyms": [],
+          "en": "Vagabond",
+          "ja": "バガボンド"
+        },
+        "nsfw": "white"
+      },
+      "ranking": {
+        "rank": 3
+      }
+    }
+  ],
+  "paging": {
+    "next": "https://api.myanimelist.net/v2/manga/ranking?offset=3&ranking_type=all&limit=3&fields=authors%7Bfirst_name%2Clast_name%7D%2Cmean%2Cid%2Ctitle%2Calternative_titles%2Cmain_picture%2Cnsfw"
+  }
+}

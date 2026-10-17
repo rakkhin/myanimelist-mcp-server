@@ -1,0 +1,6 @@
+{
+  "authenticated": true,
+  "provider": "myanimelist",
+  "expires_at": 1793098500.163973,
+  "token_path": "/home/user/.config/mal_tokens.json"
+}

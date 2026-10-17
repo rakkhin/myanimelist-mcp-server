@@ -1,0 +1,89 @@
+{
+  "data": [
+    {
+      "node": {
+        "id": 32081,
+        "title": "\"Aoi\" Hikaru ga Chikyuu ni Ita Koro......",
+        "main_picture": {
+          "medium": "https://cdn.myanimelist.net/images/manga/3/111511.webp",
+          "large": "https://cdn.myanimelist.net/images/manga/3/111511l.webp"
+        },
+        "alternative_titles": {
+          "synonyms": [],
+          "en": "\"Aoi\" When Hikaru was on the earth",
+          "ja": "\"葵\" ヒカルが地球にいたころ……"
+        },
+        "nsfw": "white",
+        "mean": 7.22
+      },
+      "list_status": {
+        "status": "completed",
+        "is_rereading": false,
+        "num_volumes_read": 19,
+        "num_chapters_read": 158,
+        "score": 0,
+        "updated_at": "2024-12-03T12:45:34+00:00"
+      }
+    },
+    {
+      "node": {
+        "id": 18072,
+        "title": "\"Bungaku Shoujo\" Minarai",
+        "main_picture": {
+          "medium": "https://cdn.myanimelist.net/images/manga/5/27656.jpg",
+          "large": "https://cdn.myanimelist.net/images/manga/5/27656l.jpg"
+        },
+        "alternative_titles": {
+          "synonyms": [
+            "Book Girl: Apprentice",
+            "Literature Girl: An Apprentice"
+          ],
+          "en": "",
+          "ja": "“文学少女”見習い"
+        },
+        "nsfw": "white",
+        "mean": 7.32
+      },
+      "list_status": {
+        "status": "plan_to_read",
+        "is_rereading": false,
+        "num_volumes_read": 0,
+        "num_chapters_read": 0,
+        "score": 0,
+        "updated_at": "2023-05-03T06:43:16+00:00"
+      }
+    },
+    {
+      "node": {
+        "id": 10000,
+        "title": "\"Bungaku Shoujo\" Series",
+        "main_picture": {
+          "medium": "https://cdn.myanimelist.net/images/manga/3/302207.webp",
+          "large": "https://cdn.myanimelist.net/images/manga/3/302207l.webp"
+        },
+        "alternative_titles": {
+          "synonyms": [
+            "Literature Girl",
+            "Book Girl and the Suicidal Mime",
+            "Book Girl and the Famished Spirit"
+          ],
+          "en": "Book Girl",
+          "ja": "“文学少女”シリーズ"
+        },
+        "nsfw": "white",
+        "mean": 8.03
+      },
+      "list_status": {
+        "status": "plan_to_read",
+        "is_rereading": false,
+        "num_volumes_read": 0,
+        "num_chapters_read": 0,
+        "score": 0,
+        "updated_at": "2021-04-01T02:33:47+00:00"
+      }
+    }
+  ],
+  "paging": {
+    "next": "https://api.myanimelist.net/v2/users/user_2569/mangalist?offset=3&limit=3&fields=id%2Ctitle%2Calternative_titles%2Cmain_picture%2Cnsfw%2Cmean%2Clist_status"
+  }
+}

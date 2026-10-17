@@ -1,0 +1,58 @@
+{
+  "data": [
+    {
+      "node": {
+        "id": 39534,
+        "title": "Jibaku Shounen Hanako-kun",
+        "main_picture": {
+          "medium": "https://cdn.myanimelist.net/images/anime/1050/111687.jpg",
+          "large": "https://cdn.myanimelist.net/images/anime/1050/111687l.jpg"
+        },
+        "alternative_titles": {
+          "synonyms": [],
+          "en": "Toilet-Bound Hanako-kun",
+          "ja": "地縛少年花子くん"
+        },
+        "nsfw": "white",
+        "mean": 7.82
+      }
+    },
+    {
+      "node": {
+        "id": 61339,
+        "title": "Jibaku Shounen Hanako-kun 2 Part 2",
+        "main_picture": {
+          "medium": "https://cdn.myanimelist.net/images/anime/1484/150617.jpg",
+          "large": "https://cdn.myanimelist.net/images/anime/1484/150617l.jpg"
+        },
+        "alternative_titles": {
+          "synonyms": [],
+          "en": "Toilet-Bound Hanako-kun Season 2 Part 2",
+          "ja": "地縛少年花子くん2 後編"
+        },
+        "nsfw": "white",
+        "mean": 8.08
+      }
+    },
+    {
+      "node": {
+        "id": 56425,
+        "title": "Houkago Shounen Hanako-kun",
+        "main_picture": {
+          "medium": "https://cdn.myanimelist.net/images/anime/1530/138031.jpg",
+          "large": "https://cdn.myanimelist.net/images/anime/1530/138031l.jpg"
+        },
+        "alternative_titles": {
+          "synonyms": [],
+          "en": "After-School Hanako-kun",
+          "ja": "放課後少年花子くん"
+        },
+        "nsfw": "white",
+        "mean": 7.15
+      }
+    }
+  ],
+  "paging": {
+    "next": "https://api.myanimelist.net/v2/anime?offset=3&q=Hanako-kun&limit=3&fields=id%2Ctitle%2Calternative_titles%2Cmain_picture%2Cnsfw%2Cmean"
+  }
+}

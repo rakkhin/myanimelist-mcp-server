@@ -1,0 +1,69 @@
+{
+  "data": [
+    {
+      "node": {
+        "id": 62340,
+        "title": "Guangyin Zhi Wai",
+        "main_picture": {
+          "medium": "https://cdn.myanimelist.net/images/anime/1628/153418.jpg",
+          "large": "https://cdn.myanimelist.net/images/anime/1628/153418l.jpg"
+        },
+        "alternative_titles": {
+          "synonyms": [
+            "Outside of Time",
+            "Beyond Time",
+            "Beyond the Timescape",
+            "BTG"
+          ],
+          "en": "Beyond Time's Gaze",
+          "ja": "光阴之外"
+        },
+        "nsfw": "white",
+        "mean": 8.41
+      }
+    },
+    {
+      "node": {
+        "id": 61517,
+        "title": "Kingdom 6th Season",
+        "main_picture": {
+          "medium": "https://cdn.myanimelist.net/images/anime/1282/151476.jpg",
+          "large": "https://cdn.myanimelist.net/images/anime/1282/151476l.jpg"
+        },
+        "alternative_titles": {
+          "synonyms": [],
+          "en": "Kingdom Season 6",
+          "ja": "キングダム 第6シリーズ"
+        },
+        "nsfw": "white",
+        "mean": 8.66
+      }
+    },
+    {
+      "node": {
+        "id": 21,
+        "title": "One Piece",
+        "main_picture": {
+          "medium": "https://cdn.myanimelist.net/images/anime/1244/138851.jpg",
+          "large": "https://cdn.myanimelist.net/images/anime/1244/138851l.jpg"
+        },
+        "alternative_titles": {
+          "synonyms": [
+            "OP"
+          ],
+          "en": "One Piece",
+          "ja": "ONE PIECE"
+        },
+        "nsfw": "white",
+        "mean": 8.72
+      }
+    }
+  ],
+  "paging": {
+    "next": "https://api.myanimelist.net/v2/anime/season/2025/fall?offset=3&limit=3&sort=anime_score&fields=id%2Ctitle%2Calternative_titles%2Cmain_picture%2Cnsfw%2Cmean"
+  },
+  "season": {
+    "year": 2025,
+    "season": "fall"
+  }
+}

@@ -1,0 +1,198 @@
+name: Tests
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+# A newer push makes older runs for the same PR obsolete. Cancelling them also
+# keeps a slower old run from overwriting the PR comments with stale results.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      checks: write # test results check run
+      pull-requests: write # test and coverage comments
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --locked
+
+      - name: Run tests
+        run: >-
+          uv run --locked pytest
+          --junitxml=reports/junit.xml
+          --cov=. --cov-report=xml:reports/coverage.xml --cov-report=term
+
+      - name: Check coverage per file
+        if: ${{ !cancelled() && hashFiles('.coverage') != '' }}
+        run: uv run --locked python scripts/check_coverage.py
+
+      - name: Publish test report
+        if: ${{ !cancelled() && hashFiles('reports/junit.xml') != '' }}
+        uses: EnricoMi/publish-unit-test-result-action@7622c5bf3d112a72ab4fa3951c2aa5723d8ab92d # v2.25.0
+        with:
+          files: reports/junit.xml
+
+      - name: Publish coverage report
+        if: ${{ !cancelled() && hashFiles('reports/coverage.xml') != '' }}
+        uses: MishaKav/pytest-coverage-comment@9ee59af31bd7bcada1cc496f086b407122602dbd # v1.12.3
+        with:
+          pytest-xml-coverage-path: reports/coverage.xml
+          title: Coverage
+          default-branch: master
+
+  dependency-scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: write # dependency scan comment
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # No cache: it is keyed on uv.lock, and this job would save one holding
+      # only pip-audit under the same key as the test job's.
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          enable-cache: false
+
+      # Checks the exact locked versions, dev group included, by their hashes.
+      # Each check records its result and writes a report section; the last
+      # step fails the job, after the report is published.
+      - name: Scan dependencies for known vulnerabilities
+        id: audit
+        shell: bash
+        run: |
+          requirements="$RUNNER_TEMP/requirements.txt"
+          findings="$RUNNER_TEMP/pip-audit.md"
+          uv export --frozen --format requirements-txt --no-emit-project \
+            --output-file "$requirements"
+          status=0
+          uvx pip-audit==2.10.1 --requirement "$requirements" \
+            --disable-pip --require-hashes --strict --progress-spinner off \
+            --format markdown --output "$findings" || status=$?
+          packages=$(grep -c '^[A-Za-z0-9]' "$requirements")
+
+          # pip-audit writes the findings file only when it finds something.
+          {
+            echo "### Vulnerabilities"
+            echo
+            if [ "$status" -eq 0 ]; then
+              echo "No known vulnerabilities in the $packages locked packages."
+            elif [ -s "$findings" ]; then
+              echo "Known vulnerabilities in the locked packages:"
+              cat "$findings"
+            else
+              echo "The scan failed before producing a report; see the job log."
+            fi
+          } > "$RUNNER_TEMP/report-audit.md"
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+
+      # Checks the runtime dependencies only, as the development tools are not
+      # distributed, against the license in pyproject.toml. licensecheck runs
+      # in the locked environment, so it reads the licenses of the locked
+      # versions; packages it shares with that environment show its versions.
+      # Platform-specific dependencies are checked only on this platform.
+      - name: Check dependency licenses
+        id: licenses
+        shell: bash
+        run: |
+          requirements="$RUNNER_TEMP/requirements-runtime.txt"
+          results="$RUNNER_TEMP/licensecheck.json"
+          uv export --frozen --format requirements-txt --no-emit-project \
+            --no-dev --output-file "$requirements"
+          status=0
+          uv run --locked --no-dev --with licensecheck==2026.0.8 \
+            licensecheck --requirements-paths "$requirements" --zero \
+            --format json --file "$results" || status=$?
+
+          # licensecheck writes the results file unless it fails to run.
+          {
+            echo "### Licenses"
+            echo
+            if [ ! -s "$results" ]; then
+              echo "The check failed before producing a report; see the job log."
+            elif [ "$status" -eq 0 ]; then
+              packages=$(jq '.packages | length' "$results")
+              echo "All $packages runtime packages have licenses compatible" \
+                "with the project license."
+            else
+              echo "Runtime packages with licenses incompatible with the" \
+                "project license:"
+              echo
+              echo "| Package | Version | License |"
+              echo "| --- | --- | --- |"
+              jq -r '.packages[] | select(.licenseCompat | not)
+                | "| \(.name) | \(.version) | \(.license | gsub("\\|"; "\\|")) |"' \
+                "$results"
+            fi
+          } > "$RUNNER_TEMP/report-licenses.md"
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+
+      - name: Build dependency scan report
+        id: report
+        shell: bash
+        run: |
+          report="$RUNNER_TEMP/report.md"
+          {
+            echo "<!-- dependency-scan-report -->"
+            echo "## Dependency scan"
+            echo
+            cat "$RUNNER_TEMP/report-audit.md"
+            echo
+            cat "$RUNNER_TEMP/report-licenses.md"
+          } > "$report"
+          cat "$report" >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo "report<<DEPENDENCY_SCAN_REPORT_EOF"
+            cat "$report"
+            echo "DEPENDENCY_SCAN_REPORT_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Publish dependency scan report
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          REPORT: ${{ steps.report.outputs.report }}
+        with:
+          script: |
+            // Keep one report comment per PR, found by its marker.
+            const body = process.env.REPORT;
+            const { owner, repo } = context.repo;
+            const issue_number = context.issue.number;
+            const comments = await github.paginate(
+              github.rest.issues.listComments,
+              { owner, repo, issue_number },
+            );
+            const existing = comments.find(
+              (c) => c.user.type === "Bot" && c.body.includes("<!-- dependency-scan-report -->"),
+            );
+            if (existing) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number, body });
+            }
+
+      - name: Fail on findings
+        if: ${{ steps.audit.outputs.status != '0' || steps.licenses.outputs.status != '0' }}
+        env:
+          AUDIT_STATUS: ${{ steps.audit.outputs.status }}
+          LICENSES_STATUS: ${{ steps.licenses.outputs.status }}
+        run: |
+          if [ "$AUDIT_STATUS" != 0 ]; then
+            echo "::error::pip-audit reported known vulnerabilities, or the scan failed. See the dependency scan report."
+          fi
+          if [ "$LICENSES_STATUS" != 0 ]; then
+            echo "::error::licensecheck found incompatible licenses, or the check failed. See the dependency scan report."
+          fi
+          exit 1

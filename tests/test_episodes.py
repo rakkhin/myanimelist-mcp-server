@@ -1,5 +1,7 @@
 from datetime import UTC, datetime
 
+import pytest
+
 from utils.episodes import (
     CalendarEpisodeEvent,
     build_watch_queue,
@@ -403,3 +405,115 @@ class TestBuildWatchQueue:
         ]
         result = build_watch_queue(data, events, now=self._NOW)
         assert result["entries"][0]["latest_released_count"] == 4
+
+
+def _ical(*events: str) -> str:
+    body = "".join(f"BEGIN:VEVENT\n{event}\nEND:VEVENT\n" for event in events)
+    return f"BEGIN:VCALENDAR\n{body}END:VCALENDAR\n"
+
+
+def test_parse_events_treats_floating_dtstart_as_utc():
+    events = parse_anime_calendar_events(
+        _ical("DTSTART:20260525T133000\nSUMMARY:Show (1)")
+    )
+
+    assert events[0].starts_at == datetime(2026, 5, 25, 13, 30, tzinfo=UTC)
+
+
+def test_parse_events_rejects_unsupported_dtstart():
+    with pytest.raises(ValueError, match="Unsupported iCal DTSTART"):
+        parse_anime_calendar_events(
+            _ical("DTSTART:2026-05-25 13:30\nSUMMARY:Show (1)")
+        )
+
+
+def test_parse_events_unfolds_continuation_lines():
+    events = parse_anime_calendar_events(
+        _ical(
+            "DTSTART:20260525T133000Z\n"
+            "SUMMARY:Show (1)\n"
+            "DESCRIPTION:Link: https://myanimelist.net/an\n"
+            " ime/62146"
+        )
+    )
+
+    assert events[0].mal_id == 62146
+
+
+def test_parse_events_skips_events_without_start_or_summary():
+    events = parse_anime_calendar_events(
+        _ical(
+            "SUMMARY:No start (1)",
+            "DTSTART:20260525T133000Z",
+            "DTSTART:20260526T133000Z\nSUMMARY:Kept (2)",
+        )
+    )
+
+    assert [event.title for event in events] == ["Kept"]
+
+
+def test_upcoming_events_digest_treats_naive_now_as_utc():
+    ical = _ical("DTSTART:20260525T133000Z\nSUMMARY:Show A (1)")
+
+    naive = upcoming_events_digest(
+        ical, now_iso="2026-05-24T00:00:00", hours=72
+    )
+    aware = upcoming_events_digest(
+        ical, now_iso="2026-05-24T00:00:00+00:00", hours=72
+    )
+
+    assert naive == aware
+    assert "Show A ep 1" in naive
+
+
+def test_upcoming_events_digest_reports_empty_window():
+    digest = upcoming_events_digest(
+        _ical(), now_iso="2026-05-24T00:00:00+00:00", hours=72
+    )
+
+    assert digest == "No scheduled anime episodes in the next 72 hours."
+
+
+def test_build_watch_queue_treats_naive_now_as_utc():
+    data = [
+        {
+            "node": {
+                "id": 7,
+                "title": "Airing Show",
+                "num_episodes": 12,
+                "status": "currently_airing",
+            },
+            "list_status": {"num_episodes_watched": 1},
+        },
+    ]
+    events = [
+        _cevent(7, 3, "2026-07-19T12:00:00"),
+        _cevent(7, 4, "2026-07-21T12:00:00"),
+    ]
+
+    naive = build_watch_queue(data, events, now=datetime(2026, 7, 20))
+    aware = build_watch_queue(
+        data, events, now=datetime(2026, 7, 20, tzinfo=UTC)
+    )
+
+    assert naive == aware
+    assert naive["entries"][0]["latest_released_count"] == 3
+
+
+@pytest.mark.parametrize(
+    ("summary", "title", "episode"),
+    [
+        (r"[sub] Show A\nPart 2 (3)", "Show A Part 2", 3),
+        (r"[sub] Show A\NPart 2 (3)", "Show A Part 2", 3),
+        (r"[sub] Show\, Part\; Two (2)", "Show, Part; Two", 2),
+        (r"[sub] C:\\new (1)", r"C:\new", 1),
+    ],
+)
+def test_parse_events_decodes_summary_escapes(summary, title, episode):
+    events = parse_anime_calendar_events(
+        _ical(f"DTSTART:20260525T133000Z\nSUMMARY:{summary}")
+    )
+
+    assert [(e.title, e.episode, e.stream_type) for e in events] == [
+        (title, episode, "sub")
+    ]

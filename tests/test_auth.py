@@ -1,9 +1,11 @@
 import asyncio
+import io
 import socketserver
 import time
 import urllib.parse
-from unittest.mock import AsyncMock, Mock
+from unittest.mock import AsyncMock, Mock, patch
 
+import httpx
 import pytest
 
 from utils import auth
@@ -72,7 +74,6 @@ def test_capture_authorization_code_ignores_empty_probe_requests(monkeypatch):
 
 
 def test_generate_pkce_defaults_to_plain_for_myanimelist(monkeypatch):
-    monkeypatch.delenv("MAL_PKCE_METHOD", raising=False)
     monkeypatch.setattr(auth, "PKCE_METHOD", "plain")
 
     verifier, challenge, method = auth._generate_pkce()
@@ -217,7 +218,7 @@ def test_get_auth_status_refresh_failure_returns_unauthenticated(
 
     monkeypatch.setattr(auth, "_token_store", lambda: store)
 
-    mock_refresh = AsyncMock(side_effect=Exception("refresh rejected"))
+    mock_refresh = AsyncMock(side_effect=httpx.HTTPError("refresh rejected"))
     monkeypatch.setattr(auth, "_refresh_tokens", mock_refresh)
 
     result = asyncio.run(auth.get_auth_status())
@@ -335,7 +336,7 @@ def test_get_auth_status_does_not_expose_token_secrets_on_refresh_failure(
 
     monkeypatch.setattr(auth, "_token_store", lambda: store)
 
-    mock_refresh = AsyncMock(side_effect=Exception("invalid_grant"))
+    mock_refresh = AsyncMock(side_effect=httpx.HTTPError("invalid_grant"))
     monkeypatch.setattr(auth, "_refresh_tokens", mock_refresh)
 
     result = asyncio.run(auth.get_auth_status())
@@ -471,7 +472,7 @@ def test_get_mal_access_token_refresh_failure_raises(monkeypatch, tmp_path):
 
     monkeypatch.setattr(auth, "_token_store", lambda: store)
 
-    mock_refresh = AsyncMock(side_effect=Exception("refresh rejected"))
+    mock_refresh = AsyncMock(side_effect=httpx.HTTPError("refresh rejected"))
     monkeypatch.setattr(auth, "_refresh_tokens", mock_refresh)
 
     with pytest.raises(RuntimeError, match="mal_auth_login"):
@@ -570,7 +571,7 @@ def test_get_mal_access_token_does_not_expose_secrets_on_failure(
 
     monkeypatch.setattr(auth, "_token_store", lambda: store)
 
-    mock_refresh = AsyncMock(side_effect=Exception("invalid_grant"))
+    mock_refresh = AsyncMock(side_effect=httpx.HTTPError("invalid_grant"))
     monkeypatch.setattr(auth, "_refresh_tokens", mock_refresh)
 
     with pytest.raises(RuntimeError) as excinfo:
@@ -580,3 +581,490 @@ def test_get_mal_access_token_does_not_expose_secrets_on_failure(
     assert "secret-access" not in msg
     assert "secret-refresh" not in msg
     assert "Bearer" not in msg
+
+
+# ---------------------------------------------------------------------------
+# OAuth callback handler
+# ---------------------------------------------------------------------------
+
+
+def _handle_callback(monkeypatch, path):
+    monkeypatch.setattr(auth, "CALLBACK_CODE", None)
+    monkeypatch.setattr(auth, "CALLBACK_STATE", None)
+    handler = object.__new__(auth._CallbackHandler)
+    handler.path = path
+    responses: list[tuple[int, str]] = []
+    handler._send_html = lambda status, body: responses.append((status, body))
+    handler.do_GET()
+    return responses
+
+
+def test_callback_handler_stores_code_and_state(monkeypatch):
+    responses = _handle_callback(monkeypatch, "/callback?code=abc&state=xyz")
+
+    assert responses[0][0] == 200
+    assert auth.CALLBACK_CODE == "abc"
+    assert auth.CALLBACK_STATE == "xyz"
+
+
+def test_callback_handler_rejects_unknown_path(monkeypatch):
+    responses = _handle_callback(monkeypatch, "/other?code=abc&state=xyz")
+
+    assert responses[0][0] == 404
+    assert auth.CALLBACK_CODE is None
+
+
+def test_callback_handler_reports_escaped_error(monkeypatch):
+    responses = _handle_callback(
+        monkeypatch, "/callback?error=%3Cscript%3Ealert(1)%3C%2Fscript%3E"
+    )
+
+    status, body = responses[0]
+    assert status == 400
+    assert "<script>" not in body
+    assert "&lt;script&gt;" in body
+    assert auth.CALLBACK_CODE is None
+
+
+def test_callback_handler_ignores_code_without_state(monkeypatch):
+    responses = _handle_callback(monkeypatch, "/callback?code=abc")
+
+    assert responses[0][0] == 200
+    assert auth.CALLBACK_CODE is None
+
+
+# ---------------------------------------------------------------------------
+# capture_authorization_code state verification
+# ---------------------------------------------------------------------------
+
+
+def _fake_server(on_request):
+    class FakeServer:
+        allow_reuse_address = False
+
+        def __init__(self, address, handler):
+            self.timeout = None
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def handle_request(self):
+            on_request()
+
+    return FakeServer
+
+
+def test_capture_authorization_code_rejects_mismatched_state(monkeypatch):
+    callbacks = iter(
+        [("forged-code", "attacker-state"), ("real-code", "expected")]
+    )
+
+    def on_request():
+        auth.CALLBACK_CODE, auth.CALLBACK_STATE = next(callbacks)
+
+    monkeypatch.setattr(socketserver, "TCPServer", _fake_server(on_request))
+    monkeypatch.setattr(auth, "CALLBACK_TIMEOUT_SECONDS", 30)
+
+    code = auth.capture_authorization_code("expected")
+
+    assert code == "real-code"
+
+
+def test_capture_authorization_code_returns_none_on_timeout(monkeypatch):
+    monkeypatch.setattr(socketserver, "TCPServer", _fake_server(lambda: None))
+    monkeypatch.setattr(auth, "CALLBACK_TIMEOUT_SECONDS", 0)
+
+    assert auth.capture_authorization_code("expected") is None
+
+
+# ---------------------------------------------------------------------------
+# Token endpoint calls
+# ---------------------------------------------------------------------------
+
+
+def _mock_token_endpoint(payload=None, error=None):
+    response = Mock()
+    response.raise_for_status = Mock(side_effect=error)
+    response.json = Mock(return_value=payload)
+
+    http = AsyncMock()
+    http.__aenter__ = AsyncMock(return_value=http)
+    http.__aexit__ = AsyncMock(return_value=False)
+    http.post = AsyncMock(return_value=response)
+    return http
+
+
+@pytest.fixture
+def oauth_client(monkeypatch):
+    monkeypatch.setenv("MAL_CLIENT_ID", "client-id")
+    monkeypatch.setenv("MAL_CLIENT_SECRET", "client-secret")
+    monkeypatch.setattr(auth, "REDIRECT_URI", "http://localhost:8080/callback")
+
+
+def test_exchange_code_for_token_posts_authorization_code_grant(oauth_client):
+    http = _mock_token_endpoint(
+        {
+            "access_token": "access",
+            "refresh_token": "refresh",
+            "expires_in": 3600,
+        }
+    )
+
+    with patch("utils.auth.httpx.AsyncClient", return_value=http):
+        tokens = asyncio.run(auth._exchange_code_for_token("code", "verifier"))
+
+    http.post.assert_awaited_once_with(
+        auth._MAL_OAUTH_TOKEN_URL,
+        data={
+            "grant_type": "authorization_code",
+            "client_id": "client-id",
+            "client_secret": "client-secret",
+            "code": "code",
+            "code_verifier": "verifier",
+            "redirect_uri": "http://localhost:8080/callback",
+        },
+    )
+    assert tokens.access_token == "access"
+    assert tokens.refresh_token == "refresh"
+    assert tokens.is_valid
+
+
+def test_refresh_tokens_saves_tokens_and_keeps_old_refresh_token(
+    oauth_client, monkeypatch, tmp_path
+):
+    store = auth.TokenStore(tmp_path / "mal_tokens.json")
+    monkeypatch.setattr(auth, "_token_store", lambda: store)
+    http = _mock_token_endpoint(
+        {"access_token": "new-access", "expires_in": 3600}
+    )
+
+    with patch("utils.auth.httpx.AsyncClient", return_value=http):
+        tokens = asyncio.run(auth._refresh_tokens("old-refresh"))
+
+    assert http.post.call_args.kwargs["data"]["grant_type"] == "refresh_token"
+    assert http.post.call_args.kwargs["data"]["refresh_token"] == "old-refresh"
+    assert tokens.refresh_token == "old-refresh"
+    assert store.load() == tokens
+
+
+def test_refresh_tokens_http_error_keeps_stored_tokens(
+    oauth_client, monkeypatch, tmp_path
+):
+    store = auth.TokenStore(tmp_path / "mal_tokens.json")
+    old = StoredTokens(
+        access_token="old", refresh_token="old-refresh", expires_at=0
+    )
+    store.save(old)
+    monkeypatch.setattr(auth, "_token_store", lambda: store)
+    http = _mock_token_endpoint(error=RuntimeError("401 invalid_grant"))
+
+    with (
+        patch("utils.auth.httpx.AsyncClient", return_value=http),
+        pytest.raises(RuntimeError, match="invalid_grant"),
+    ):
+        asyncio.run(auth._refresh_tokens("old-refresh"))
+
+    assert store.load() == old
+
+
+def test_exchange_code_requires_client_secret(monkeypatch):
+    monkeypatch.setenv("MAL_CLIENT_ID", "client-id")
+
+    with pytest.raises(ValueError, match="MAL_CLIENT_SECRET"):
+        asyncio.run(auth._exchange_code_for_token("code", "verifier"))
+
+
+# ---------------------------------------------------------------------------
+# Background login watcher
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def login_env(monkeypatch, tmp_path):
+    store = auth.TokenStore(tmp_path / "mal_tokens.json")
+    state: dict = {}
+    monkeypatch.setattr(auth, "_token_store", lambda: store)
+    monkeypatch.setattr(auth, "_login_state", state)
+    return store, state
+
+
+def test_watch_login_saves_tokens_on_success(login_env, monkeypatch):
+    store, state = login_env
+    tokens = StoredTokens(
+        access_token="access",
+        refresh_token="refresh",
+        expires_at=time.time() + 3600,
+    )
+    captured = Mock(return_value="code")
+    exchange = AsyncMock(return_value=tokens)
+    monkeypatch.setattr(auth, "capture_authorization_code", captured)
+    monkeypatch.setattr(auth, "_exchange_code_for_token", exchange)
+
+    asyncio.run(auth._watch_login("state", "verifier"))
+
+    captured.assert_called_once_with("state")
+    exchange.assert_awaited_once_with("code", "verifier")
+    assert store.load() == tokens
+    assert "completed_at" in state
+    assert "error" not in state
+
+
+def test_watch_login_records_timeout(login_env, monkeypatch):
+    store, state = login_env
+    monkeypatch.setattr(
+        auth, "capture_authorization_code", Mock(return_value=None)
+    )
+    exchange = AsyncMock()
+    monkeypatch.setattr(auth, "_exchange_code_for_token", exchange)
+
+    asyncio.run(auth._watch_login("state", "verifier"))
+
+    assert "timed out" in state["error"]
+    exchange.assert_not_awaited()
+    assert store.load() is None
+
+
+def test_watch_login_records_exchange_failure(login_env, monkeypatch):
+    store, state = login_env
+    monkeypatch.setattr(
+        auth, "capture_authorization_code", Mock(return_value="code")
+    )
+    monkeypatch.setattr(
+        auth,
+        "_exchange_code_for_token",
+        AsyncMock(side_effect=RuntimeError("invalid_grant")),
+    )
+
+    asyncio.run(auth._watch_login("state", "verifier"))
+
+    assert state["error"] == "Login failed: invalid_grant"
+    assert store.load() is None
+
+
+# ---------------------------------------------------------------------------
+# login_initiate / login_status / revoke_auth
+# ---------------------------------------------------------------------------
+
+
+def test_login_initiate_skips_login_when_already_authenticated(login_env):
+    store, state = login_env
+    store.save(
+        StoredTokens(
+            access_token="access",
+            refresh_token=None,
+            expires_at=time.time() + 3600,
+        )
+    )
+
+    result = auth.login_initiate()
+
+    assert result["status"] == "already_authenticated"
+    assert result["authorization_url"] is None
+    assert state == {}
+
+
+def test_login_initiate_requires_client_secret(login_env, monkeypatch):
+    _, state = login_env
+    monkeypatch.setenv("MAL_CLIENT_ID", "client-id")
+
+    with pytest.raises(ValueError, match="MAL_CLIENT_SECRET"):
+        auth.login_initiate()
+
+    assert "task" not in state
+
+
+def test_login_initiate_starts_one_watcher_and_reuses_pending_login(
+    login_env, oauth_client, monkeypatch
+):
+    _, state = login_env
+    monkeypatch.setattr(auth, "PKCE_METHOD", "plain")
+    started: list[tuple[str, str]] = []
+
+    async def run():
+        release = asyncio.Event()
+
+        async def fake_watch(login_state, verifier):
+            started.append((login_state, verifier))
+            await release.wait()
+
+        monkeypatch.setattr(auth, "_watch_login", fake_watch)
+        first = auth.login_initiate()
+        await asyncio.sleep(0)
+        second = auth.login_initiate()
+        release.set()
+        await state["task"]
+        return first, second
+
+    first, second = asyncio.run(run())
+
+    params = urllib.parse.parse_qs(
+        urllib.parse.urlparse(first["authorization_url"]).query
+    )
+    assert first["status"] == "pending"
+    assert second["status"] == "pending"
+    assert second["authorization_url"] == first["authorization_url"]
+    assert started == [(state["state"], state["verifier"])]
+    assert params["state"] == [state["state"]]
+    assert params["code_challenge"] == [state["verifier"]]
+
+
+def test_login_status_reports_authenticated(login_env):
+    store, _ = login_env
+    store.save(
+        StoredTokens(
+            access_token="access",
+            refresh_token=None,
+            expires_at=time.time() + 3600,
+        )
+    )
+
+    result = asyncio.run(auth.login_status())
+
+    assert result["status"] == "authenticated"
+    assert result["authenticated"] is True
+
+
+def test_login_status_reports_pending(login_env):
+    _, state = login_env
+    state["task"] = Mock(done=Mock(return_value=False))
+    state["authorization_url"] = "https://example.test/authorize"
+
+    result = asyncio.run(auth.login_status())
+
+    assert result["status"] == "pending"
+    assert result["authorization_url"] == "https://example.test/authorize"
+
+
+def test_login_status_reports_failure(login_env):
+    _, state = login_env
+    state["task"] = Mock(done=Mock(return_value=True))
+    state["error"] = "Login failed: invalid_grant"
+
+    result = asyncio.run(auth.login_status())
+
+    assert result["status"] == "failed"
+    assert result["error"] == "Login failed: invalid_grant"
+
+
+def test_login_status_reports_not_authenticated(login_env):
+    result = asyncio.run(auth.login_status())
+
+    assert result["status"] == "not_authenticated"
+    assert result["authenticated"] is False
+
+
+def test_revoke_auth_clears_tokens_and_login_state(login_env):
+    store, state = login_env
+    store.save(
+        StoredTokens(
+            access_token="access",
+            refresh_token="refresh",
+            expires_at=time.time(),
+        )
+    )
+    state["error"] = "Login failed"
+
+    result = auth.revoke_auth()
+
+    assert result["authenticated"] is False
+    assert store.load() is None
+    assert state == {}
+
+
+def test_get_mal_access_token_without_tokens_raises_auth_error(login_env):
+    with pytest.raises(auth.MALAuthError, match="mal_auth_login"):
+        asyncio.run(auth.get_mal_access_token())
+
+
+def test_get_mal_access_token_propagates_unexpected_refresh_error(
+    login_env, monkeypatch
+):
+    store, _ = login_env
+    store.save(
+        StoredTokens(access_token="old", refresh_token="refresh", expires_at=0)
+    )
+    monkeypatch.setattr(
+        auth, "_refresh_tokens", AsyncMock(side_effect=TypeError("bug"))
+    )
+
+    with pytest.raises(TypeError, match="bug"):
+        asyncio.run(auth.get_mal_access_token())
+
+
+def test_token_store_defaults_to_configured_location(tmp_path):
+    assert auth._token_store().path.is_relative_to(tmp_path)
+
+
+def test_pkce_method_rejects_unknown_method(monkeypatch):
+    monkeypatch.setenv("MAL_PKCE_METHOD", "md5")
+
+    with pytest.raises(ValueError, match="MAL_PKCE_METHOD"):
+        auth._generate_pkce()
+
+
+def test_generate_pkce_s256_matches_rfc7636_example(monkeypatch):
+    # RFC 7636, Appendix B.
+    verifier = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"
+    monkeypatch.setenv("MAL_PKCE_METHOD", "S256")
+    monkeypatch.setattr(auth.secrets, "token_urlsafe", lambda _: verifier)
+
+    assert auth._generate_pkce() == (
+        verifier,
+        "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM",
+        "S256",
+    )
+
+
+def test_callback_handler_writes_html_response_without_logging(
+    monkeypatch, capsys
+):
+    monkeypatch.setattr(auth, "CALLBACK_CODE", None)
+    monkeypatch.setattr(auth, "CALLBACK_STATE", None)
+    handler = object.__new__(auth._CallbackHandler)
+    handler.path = "/callback?code=secret-code&state=xyz"
+    handler.request_version = "HTTP/1.1"
+    handler.requestline = f"GET {handler.path} HTTP/1.1"
+    handler.wfile = io.BytesIO()
+
+    handler.do_GET()
+
+    head, body = handler.wfile.getvalue().split(b"\r\n\r\n", 1)
+    status_line, *headers = head.decode().split("\r\n")
+    assert status_line.split()[1] == "200"
+    assert "Content-Type: text/html; charset=utf-8" in headers
+    assert f"Content-Length: {len(body)}" in headers
+    assert b"Authorization received" in body
+    assert "secret-code" not in capsys.readouterr().err
+
+
+def test_get_auth_status_skips_refresh_when_refreshed_while_waiting(
+    monkeypatch, tmp_path
+):
+    now = time.time()
+    expired = StoredTokens(access_token="old", refresh_token="r", expires_at=0)
+    refreshed = StoredTokens(
+        access_token="new", refresh_token="r", expires_at=now + 3600
+    )
+    store = Mock(path=tmp_path / "mal_tokens.json")
+    store.load.side_effect = [expired, refreshed]
+    monkeypatch.setattr(auth, "_token_store", lambda: store)
+    refresh = AsyncMock()
+    monkeypatch.setattr(auth, "_refresh_tokens", refresh)
+
+    result = asyncio.run(auth.get_auth_status())
+
+    assert result["authenticated"] is True
+    assert result["expires_at"] == refreshed.expires_at
+    refresh.assert_not_awaited()
+
+
+def test_login_initiate_requires_running_event_loop(login_env, oauth_client):
+    _, state = login_env
+
+    with pytest.raises(RuntimeError, match="no running event loop"):
+        auth.login_initiate()
+
+    assert state == {}

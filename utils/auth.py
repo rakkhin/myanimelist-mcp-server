@@ -39,6 +39,15 @@ CALLBACK_STATE: str | None = None
 _MAL_OAUTH_AUTH_URL = "https://myanimelist.net/v1/oauth2/authorize"
 _MAL_OAUTH_TOKEN_URL = "https://myanimelist.net/v1/oauth2/token"
 
+# Errors a token refresh can raise: HTTP failures, missing client config or
+# unparsable responses, a response without access_token, or a failed save.
+_REFRESH_ERRORS = (httpx.HTTPError, ValueError, KeyError, OSError)
+
+
+class MALAuthError(RuntimeError):
+    """No valid MyAnimeList access token is available."""
+
+
 # In-memory login state for the non-blocking OAuth flow.
 _login_state: dict[str, Any] = {}
 
@@ -245,7 +254,7 @@ async def get_auth_status() -> dict[str, Any]:
                         "expires_at": refreshed.expires_at,
                         "token_path": str(store.path),
                     }
-                except Exception as exc:
+                except _REFRESH_ERRORS as exc:
                     LOGGER.warning(
                         "Silent refresh failed during auth status check: %s",
                         exc,
@@ -282,7 +291,7 @@ def revoke_auth() -> dict[str, Any]:
 async def get_mal_access_token() -> str:
     """Return a valid access token, refreshing if possible.
 
-    Raises RuntimeError with a clear message when no token exists and refresh is not possible.
+    Raises MALAuthError with a clear message when no token exists and refresh is not possible.
     """
     store = _token_store()
     tokens = store.load()
@@ -299,10 +308,10 @@ async def get_mal_access_token() -> str:
                 try:
                     refreshed = await _refresh_tokens(tokens.refresh_token)
                     return refreshed.access_token
-                except Exception as exc:
+                except _REFRESH_ERRORS as exc:
                     LOGGER.warning("Failed to refresh MAL token: %s", exc)
 
-    raise RuntimeError(
+    raise MALAuthError(
         "No valid MyAnimeList access token available. "
         "Call the 'mal_auth_login' tool first to start OAuth authorization."
     )
@@ -349,6 +358,10 @@ def login_initiate() -> dict[str, Any]:
             "redirect_uri": REDIRECT_URI,
         }
 
+    # The callback watcher runs as a task on the caller's event loop. Fail
+    # before touching login state if there is none, as the task would never run.
+    loop = asyncio.get_running_loop()
+
     state = secrets.token_urlsafe(16)
     verifier, challenge, challenge_method = _generate_pkce()
     auth_url = _authorization_url(state, challenge, challenge_method)
@@ -364,12 +377,6 @@ def login_initiate() -> dict[str, Any]:
         }
     )
 
-    # Start the callback watcher as a background asyncio task.
-    try:
-        loop = asyncio.get_running_loop()
-    except RuntimeError:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
     task = loop.create_task(_watch_login(state, verifier))
     _login_state["task"] = task
 

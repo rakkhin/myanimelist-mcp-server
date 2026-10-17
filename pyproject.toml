@@ -1,11 +1,38 @@
 [project]
 name = "myanimelist-mcp-server"
 version = "0.1.0"
+license = "MIT"
 description = "MCP server for MyAnimeList.net using the official API"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "httpx>=0.28.1",
-    "mcp[cli]>=1.9.2,<2",
-    "python-dotenv>=1.1.0",
+    "fastmcp~=4.0",
+    "python-dotenv>=1.2.2",
 ]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "pytest-cov>=7.1.0",
+]
+
+[tool.uv]
+# Minimum versions for transitive dependencies with known vulnerabilities
+# below them; constraints do not add a dependency.
+constraint-dependencies = [
+    "pygments>=2.20.0",
+]
+
+[tool.coverage.report]
+# The total; scripts/check_coverage.py applies it to every file.
+fail_under = 95
+exclude_also = [
+    'if __name__ == "__main__":',
+]
+
+[tool.coverage.run]
+omit = ["tests/*"]
+
+[tool.licensecheck]
+zero = false

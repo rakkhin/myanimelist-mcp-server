@@ -1,0 +1,81 @@
+{
+  "data": [
+    {
+      "node": {
+        "id": 52991,
+        "title": "Sousou no Frieren",
+        "main_picture": {
+          "medium": "https://cdn.myanimelist.net/images/anime/1015/138006.jpg",
+          "large": "https://cdn.myanimelist.net/images/anime/1015/138006l.jpg"
+        },
+        "mean": 9.24,
+        "rank": 1,
+        "alternative_titles": {
+          "synonyms": [
+            "Frieren at the Funeral",
+            "Frieren The Slayer"
+          ],
+          "en": "Frieren: Beyond Journey's End",
+          "ja": "葬送のフリーレン"
+        },
+        "nsfw": "white"
+      },
+      "ranking": {
+        "rank": 1
+      }
+    },
+    {
+      "node": {
+        "id": 5114,
+        "title": "Fullmetal Alchemist: Brotherhood",
+        "main_picture": {
+          "medium": "https://cdn.myanimelist.net/images/anime/1208/94745.jpg",
+          "large": "https://cdn.myanimelist.net/images/anime/1208/94745l.jpg"
+        },
+        "mean": 9.11,
+        "rank": 2,
+        "alternative_titles": {
+          "synonyms": [
+            "Hagane no Renkinjutsushi: Fullmetal Alchemist",
+            "Fullmetal Alchemist (2009)",
+            "FMA",
+            "FMAB"
+          ],
+          "en": "Fullmetal Alchemist: Brotherhood",
+          "ja": "鋼の錬金術師 FULLMETAL ALCHEMIST"
+        },
+        "nsfw": "white"
+      },
+      "ranking": {
+        "rank": 2
+      }
+    },
+    {
+      "node": {
+        "id": 61316,
+        "title": "Re:Zero kara Hajimeru Isekai Seikatsu 4th Season",
+        "main_picture": {
+          "medium": "https://cdn.myanimelist.net/images/anime/1540/155824.jpg",
+          "large": "https://cdn.myanimelist.net/images/anime/1540/155824l.jpg"
+        },
+        "mean": 9.09,
+        "rank": 3,
+        "alternative_titles": {
+          "synonyms": [
+            "Re: Life in a different world from zero",
+            "ReZero"
+          ],
+          "en": "Re:ZERO -Starting Life in Another World- Season 4",
+          "ja": "Re:ゼロから始める異世界生活 4th season"
+        },
+        "nsfw": "white"
+      },
+      "ranking": {
+        "rank": 3
+      }
+    }
+  ],
+  "paging": {
+    "next": "https://api.myanimelist.net/v2/anime/ranking?offset=3&ranking_type=all&limit=3&fields=mean%2Crank%2Cid%2Ctitle%2Calternative_titles%2Cmain_picture%2Cnsfw"
+  }
+}

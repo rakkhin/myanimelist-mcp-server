@@ -1,0 +1,43 @@
+{
+  "data": [
+    {
+      "node": {
+        "id": 100035,
+        "title": "Tongari Boushi no Atelier",
+        "main_picture": {
+          "medium": "https://cdn.myanimelist.net/images/manga/3/190005.webp",
+          "large": "https://cdn.myanimelist.net/images/manga/3/190005l.webp"
+        },
+        "alternative_titles": {
+          "synonyms": [
+            "Atelier of Witch Hat"
+          ],
+          "en": "Witch Hat Atelier",
+          "ja": "とんがり帽子のアトリエ"
+        },
+        "nsfw": "white",
+        "mean": 8.76
+      }
+    },
+    {
+      "node": {
+        "id": 122435,
+        "title": "Tongari Boushi no Kitchen",
+        "main_picture": {
+          "medium": "https://cdn.myanimelist.net/images/manga/3/230220.jpg",
+          "large": "https://cdn.myanimelist.net/images/manga/3/230220l.jpg"
+        },
+        "alternative_titles": {
+          "synonyms": [
+            "Kitchen of Witch Hat"
+          ],
+          "en": "Witch Hat Atelier Kitchen",
+          "ja": "とんがり帽子のキッチン"
+        },
+        "nsfw": "white",
+        "mean": 7.74
+      }
+    }
+  ],
+  "paging": {}
+}

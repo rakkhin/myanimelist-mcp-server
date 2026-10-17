@@ -11,3 +11,11 @@ wheels/
 
 # Environment variables
 .env
+
+# Test coverage
+.coverage
+.coverage.*
+htmlcov/
+
+# Test data
+tests/tool_responses/

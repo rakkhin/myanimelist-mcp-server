@@ -1,0 +1,47 @@
+{
+  "data": {
+    "title": "Jibaku Shounen Hanako-kun Chapter 15 Discussion",
+    "posts": [
+      {
+        "id": 59777750,
+        "number": 1,
+        "created_at": "2020-05-10T23:19:36+00:00",
+        "created_by": {
+          "id": 1844303,
+          "name": "user_5619",
+          "forum_avator": ""
+        },
+        "body": "Placeholder post text.",
+        "signature": "Placeholder signature."
+      }
+    ],
+    "poll": {
+      "id": 455449,
+      "question": "Jibaku Shounen Hanako-kun Chapter 15 Discussion",
+      "closed": false,
+      "options": [
+        {
+          "id": 2293800,
+          "text": "5 out of 5: Loved it!",
+          "votes": 15
+        },
+        {
+          "id": 2293801,
+          "text": "4 out of 5: Liked it",
+          "votes": 6
+        },
+        {
+          "id": 2293802,
+          "text": "3 out of 5: It was OK",
+          "votes": 1
+        },
+        {
+          "id": 2293803,
+          "text": "2 out of 5: Disliked it",
+          "votes": 1
+        }
+      ]
+    }
+  },
+  "paging": {}
+}

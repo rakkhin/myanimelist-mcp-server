@@ -10,7 +10,9 @@ from typing import Any
 
 import httpx
 
-from utils.schemas import AnimeFields
+from utils.schemas import AnimeFields, MangaFields
+
+Fields = AnimeFields | MangaFields
 
 MAL_API_URL = "https://api.myanimelist.net/v2"
 
@@ -39,8 +41,6 @@ _SECRET_PATTERNS = [
     ),
 ]
 
-_FIELD_RE = re.compile(r"^[A-Za-z0-9_,.]+$")
-
 
 def safe_error(message: str) -> str:
     clean = message
@@ -53,25 +53,20 @@ def clamp_limit(limit: int, maximum: int = 100) -> int:
     return max(1, min(int(limit), maximum))
 
 
+# Fields whose useful parts MAL only returns when requested as sub-fields.
+_FIELD_EXPANSIONS: dict[Fields, str] = {
+    MangaFields.AUTHORS: "authors{first_name,last_name}"
+}
+
+
 def build_fields(
-    fields: Iterable[AnimeFields] | None, default: Iterable[AnimeFields]
+    fields: Iterable[Fields] | None, default: Iterable[Fields]
 ) -> str:
-    if fields is None:
-        selected = default
-    else:
-        selected = [*fields, *default]
-    deduped: list[str] = []
-    for field in selected:
-        field = str(field.value).strip()
-        if not field:
-            continue
-        if not _FIELD_RE.match(field):
-            raise ValueError(f"Invalid field name: {field}")
+    deduped: list[Fields] = []
+    for field in [*(fields or []), *default]:
         if field not in deduped:
             deduped.append(field)
-    if not deduped:
-        deduped = [x.value for x in default]
-    return ",".join(deduped)
+    return ",".join(_FIELD_EXPANSIONS.get(field, field) for field in deduped)
 
 
 @dataclass(frozen=True)
@@ -142,6 +137,9 @@ class MALClient:
             if response.status_code == 204 or not response.content:
                 return {"ok": True}
             body = response.json()
+            # Successful deletes answer "[]"; MAL's documentation shows null.
+            if body is None or body == []:
+                return {"ok": True}
             if isinstance(body, dict) and "error" in body:
                 err_msg = body.get("error") or body.get("message") or ""
                 raise MALAPIError(
@@ -166,10 +164,10 @@ class MALClient:
     ) -> dict[str, Any]:
         return await self.request("GET", endpoint, token=token, params=params)
 
-    async def put_authed(
+    async def patch_authed(
         self, endpoint: str, token: str, *, data: dict[str, Any]
     ) -> dict[str, Any]:
-        return await self.request("PUT", endpoint, token=token, data=data)
+        return await self.request("PATCH", endpoint, token=token, data=data)
 
     async def delete_authed(self, endpoint: str, token: str) -> dict[str, Any]:
         return await self.request("DELETE", endpoint, token=token)

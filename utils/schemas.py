@@ -1,7 +1,7 @@
-from enum import Enum
+from enum import StrEnum
 
 
-class AnimeRanking(Enum):
+class AnimeRanking(StrEnum):
     ALL = "all"
     AIRING = "airing"
     UPCOMING = "upcoming"
@@ -13,19 +13,19 @@ class AnimeRanking(Enum):
     FAVORITE = "favorite"
 
 
-class Season(Enum):
+class Season(StrEnum):
     WINTER = "winter"
     SPRING = "spring"
     SUMMER = "summer"
     FALL = "fall"
 
 
-class SeasonSort(Enum):
+class SeasonSort(StrEnum):
     SCORE = "anime_score"
     NUM_LIST_USERS = "anime_num_list_users"
 
 
-class AnimeStatus(Enum):
+class AnimeStatus(StrEnum):
     WATCHING = "watching"
     COMPLETED = "completed"
     ON_HOLD = "on_hold"
@@ -33,14 +33,14 @@ class AnimeStatus(Enum):
     PLANNING = "plan_to_watch"
 
 
-class AnimeStatusSort(Enum):
+class AnimeStatusSort(StrEnum):
     LIST_SCORE = "list_score"
     LIST_UPDATED_AT = "list_updated_at"
     ANIME_TITLE = "anime_title"
     ANIME_START_DATE = "anime_start_date"
 
 
-class AnimeFields(Enum):
+class AnimeFields(StrEnum):
     ID = "id"
     TITLE = "title"
     MAIN_PICTURE = "main_picture"
@@ -75,7 +75,38 @@ class AnimeFields(Enum):
     STATISTICS = "statistics"
 
 
-class MangaRanking(Enum):
+class MangaFields(StrEnum):
+    ID = "id"
+    TITLE = "title"
+    MAIN_PICTURE = "main_picture"
+    ALTERNATIVE_TITLES = "alternative_titles"
+    START_DATE = "start_date"
+    END_DATE = "end_date"
+    SYNOPSIS = "synopsis"
+    MEAN = "mean"
+    RANK = "rank"
+    POPULARITY = "popularity"
+    NUM_LIST_USERS = "num_list_users"
+    NUM_SCORING_USERS = "num_scoring_users"
+    NSFW = "nsfw"
+    CREATED_AT = "created_at"
+    UPDATED_AT = "updated_at"
+    MEDIA_TYPE = "media_type"
+    STATUS = "status"
+    GENRES = "genres"
+    MY_LIST_STATUS = "my_list_status"
+    NUM_VOLUMES = "num_volumes"
+    NUM_CHAPTERS = "num_chapters"
+    AUTHORS = "authors"
+    PICTURES = "pictures"
+    BACKGROUND = "background"
+    RELATED_ANIME = "related_anime"
+    RELATED_MANGA = "related_manga"
+    RECOMMENDATIONS = "recommendations"
+    SERIALIZATION = "serialization"
+
+
+class MangaRanking(StrEnum):
     ALL = "all"
     MANGA = "manga"
     NOVEL = "novels"
@@ -87,7 +118,7 @@ class MangaRanking(Enum):
     FAVORITE = "favorite"
 
 
-class MangaStatus(Enum):
+class MangaStatus(StrEnum):
     READING = "reading"
     COMPLETED = "completed"
     ON_HOLD = "on_hold"
@@ -95,7 +126,7 @@ class MangaStatus(Enum):
     PLANNING = "plan_to_read"
 
 
-class MangaStatusSort(Enum):
+class MangaStatusSort(StrEnum):
     LIST_SCORE = "list_score"
     LIST_UPDATED_AT = "list_updated_at"
     MANGA_TITLE = "manga_title"
