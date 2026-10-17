@@ -13,18 +13,19 @@ from utils.mal_client import (
     clamp_limit,
     safe_error,
 )
+from utils.schemas import AnimeFields
 
 
 def test_build_fields_uses_default_when_none_or_empty():
-    assert build_fields(None, ["id", "title"]) == "id,title"
-    assert build_fields([], ["id", "title"]) == "id,title"
+    default = [AnimeFields.ID, AnimeFields.TITLE]
+    assert build_fields(None, default) == "id,title"
+    assert build_fields([], default) == "id,title"
 
 
-def test_build_fields_deduplicates_and_rejects_bad_values():
-    assert build_fields(["id", "title", "id"], ["main_picture"]) == "id,title"
-
-    with pytest.raises(ValueError, match="Invalid field"):
-        build_fields(["id", "bad field"], ["title"])
+def test_build_fields_deduplicates_and_appends_default():
+    fields = [AnimeFields.ID, AnimeFields.TITLE, AnimeFields.ID]
+    default = [AnimeFields.MAIN_PICTURE, AnimeFields.ID]
+    assert build_fields(fields, default) == "id,title,main_picture"
 
 
 def test_clamp_limit_respects_minimum_and_maximum():

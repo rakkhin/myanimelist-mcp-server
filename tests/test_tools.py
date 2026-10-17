@@ -10,6 +10,7 @@ from tools.tools import (
 )
 from utils.mal_client import MALAPIError
 from utils.schemas import (
+    AnimeFields,
     AnimeRanking,
     AnimeStatus,
     AnimeStatusSort,
@@ -166,7 +167,14 @@ class TestToolRegistration:
             register_tools(mcp)
 
         tool = asyncio.run(mcp.get_tool("get_anime_ranking"))
-        asyncio.run(tool.fn(AnimeRanking.ALL, 10, 0, ["id", "title", "rank"]))
+        asyncio.run(
+            tool.fn(
+                AnimeRanking.ALL,
+                10,
+                0,
+                [AnimeFields.ID, AnimeFields.TITLE, AnimeFields.RANK],
+            )
+        )
 
         call_args = mock_client.get_public.call_args
         assert call_args is not None
@@ -184,7 +192,16 @@ class TestToolRegistration:
             register_tools(mcp)
 
         tool = asyncio.run(mcp.get_tool("get_seasonal_anime"))
-        asyncio.run(tool.fn(Season.SUMMER, 2024, None, 10, 0, ["id", "title"]))
+        asyncio.run(
+            tool.fn(
+                Season.SUMMER,
+                2024,
+                None,
+                10,
+                0,
+                [AnimeFields.ID, AnimeFields.TITLE],
+            )
+        )
 
         call_args = mock_client.get_public.call_args
         assert call_args is not None
@@ -201,7 +218,14 @@ class TestToolRegistration:
             register_tools(mcp)
 
         tool = asyncio.run(mcp.get_tool("get_manga_ranking"))
-        asyncio.run(tool.fn(MangaRanking.ALL, 100, 0, ["id", "title", "rank"]))
+        asyncio.run(
+            tool.fn(
+                MangaRanking.ALL,
+                100,
+                0,
+                [AnimeFields.ID, AnimeFields.TITLE, AnimeFields.RANK],
+            )
+        )
 
         call_args = mock_client.get_public.call_args
         assert call_args is not None
@@ -563,7 +587,15 @@ class TestToolRegistration:
             register_tools(mcp)
 
             tool = asyncio.run(mcp.get_tool("get_my_anime_list"))
-            asyncio.run(tool.fn(None, None, 10, 0, ["id", "title", "mean"]))
+            asyncio.run(
+                tool.fn(
+                    None,
+                    None,
+                    10,
+                    0,
+                    [AnimeFields.ID, AnimeFields.TITLE, AnimeFields.MEAN],
+                )
+            )
 
             params = mock_client.get_authed.call_args.kwargs["params"]
             assert "fields" in params
@@ -586,7 +618,15 @@ class TestToolRegistration:
             register_tools(mcp)
 
             tool = asyncio.run(mcp.get_tool("get_my_manga_list"))
-            asyncio.run(tool.fn(None, None, 10, 0, ["id", "title", "mean"]))
+            asyncio.run(
+                tool.fn(
+                    None,
+                    None,
+                    10,
+                    0,
+                    [AnimeFields.ID, AnimeFields.TITLE, AnimeFields.MEAN],
+                )
+            )
 
             params = mock_client.get_authed.call_args.kwargs["params"]
             assert "fields" in params
