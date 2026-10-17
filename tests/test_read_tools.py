@@ -4,6 +4,7 @@ import httpx
 import pytest
 
 from tools import tools
+from utils.auth import MALAuthError
 from utils.mal_client import MALAPIError
 from utils.schemas import (
     AnimeFields,
@@ -158,6 +159,12 @@ class TestPublicTools:
             },
         )
 
+    def test_unexpected_error_is_not_turned_into_payload(self, mal):
+        mal.client.get_public.side_effect = KeyError("data")
+
+        with pytest.raises(KeyError):
+            mal.call("get_anime", q="naruto")
+
     @pytest.mark.parametrize(("name", "kwargs"), PUBLIC_TOOLS)
     def test_mal_error_is_returned_as_payload(self, mal, name, kwargs):
         mal.client.get_public.side_effect = MALAPIError("MAL is down")
@@ -221,7 +228,7 @@ class TestAuthenticatedTools:
         monkeypatch.setattr(
             tools,
             "get_mal_access_token",
-            AsyncMock(side_effect=RuntimeError("Call 'mal_auth_login' first")),
+            AsyncMock(side_effect=MALAuthError("Call 'mal_auth_login' first")),
         )
 
         result = mal.call(name, **kwargs)

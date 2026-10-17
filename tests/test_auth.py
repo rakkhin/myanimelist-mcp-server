@@ -4,6 +4,7 @@ import time
 import urllib.parse
 from unittest.mock import AsyncMock, Mock, patch
 
+import httpx
 import pytest
 
 from utils import auth
@@ -216,7 +217,7 @@ def test_get_auth_status_refresh_failure_returns_unauthenticated(
 
     monkeypatch.setattr(auth, "_token_store", lambda: store)
 
-    mock_refresh = AsyncMock(side_effect=Exception("refresh rejected"))
+    mock_refresh = AsyncMock(side_effect=httpx.HTTPError("refresh rejected"))
     monkeypatch.setattr(auth, "_refresh_tokens", mock_refresh)
 
     result = asyncio.run(auth.get_auth_status())
@@ -334,7 +335,7 @@ def test_get_auth_status_does_not_expose_token_secrets_on_refresh_failure(
 
     monkeypatch.setattr(auth, "_token_store", lambda: store)
 
-    mock_refresh = AsyncMock(side_effect=Exception("invalid_grant"))
+    mock_refresh = AsyncMock(side_effect=httpx.HTTPError("invalid_grant"))
     monkeypatch.setattr(auth, "_refresh_tokens", mock_refresh)
 
     result = asyncio.run(auth.get_auth_status())
@@ -470,7 +471,7 @@ def test_get_mal_access_token_refresh_failure_raises(monkeypatch, tmp_path):
 
     monkeypatch.setattr(auth, "_token_store", lambda: store)
 
-    mock_refresh = AsyncMock(side_effect=Exception("refresh rejected"))
+    mock_refresh = AsyncMock(side_effect=httpx.HTTPError("refresh rejected"))
     monkeypatch.setattr(auth, "_refresh_tokens", mock_refresh)
 
     with pytest.raises(RuntimeError, match="mal_auth_login"):
@@ -569,7 +570,7 @@ def test_get_mal_access_token_does_not_expose_secrets_on_failure(
 
     monkeypatch.setattr(auth, "_token_store", lambda: store)
 
-    mock_refresh = AsyncMock(side_effect=Exception("invalid_grant"))
+    mock_refresh = AsyncMock(side_effect=httpx.HTTPError("invalid_grant"))
     monkeypatch.setattr(auth, "_refresh_tokens", mock_refresh)
 
     with pytest.raises(RuntimeError) as excinfo:
@@ -970,3 +971,23 @@ def test_revoke_auth_clears_tokens_and_login_state(login_env):
     assert result["authenticated"] is False
     assert store.load() is None
     assert state == {}
+
+
+def test_get_mal_access_token_without_tokens_raises_auth_error(login_env):
+    with pytest.raises(auth.MALAuthError, match="mal_auth_login"):
+        asyncio.run(auth.get_mal_access_token())
+
+
+def test_get_mal_access_token_propagates_unexpected_refresh_error(
+    login_env, monkeypatch
+):
+    store, _ = login_env
+    store.save(
+        StoredTokens(access_token="old", refresh_token="refresh", expires_at=0)
+    )
+    monkeypatch.setattr(
+        auth, "_refresh_tokens", AsyncMock(side_effect=TypeError("bug"))
+    )
+
+    with pytest.raises(TypeError, match="bug"):
+        asyncio.run(auth.get_mal_access_token())

@@ -12,6 +12,7 @@ from mcp.types import ToolAnnotations
 from pydantic import Field
 
 from utils.auth import (
+    MALAuthError,
     get_auth_status,
     get_mal_access_token,
     login_initiate,
@@ -24,6 +25,7 @@ from utils.episodes import (
     upcoming_events_digest,
 )
 from utils.mal_client import (
+    MALAPIError,
     MALClient,
     api_error_payload,
     build_fields,
@@ -37,6 +39,10 @@ _MAL_NEWS_RSS_URL = "https://myanimelist.net/rss/news.xml"
 _MAL_NEWS_LIMIT = 20
 _TRACKING_QUERY_RE = re.compile(r"[?&]_location=rss\b")
 _MEDIA_NS = "http://search.yahoo.com/mrss/"
+
+# Errors tools report back as an error payload. Anything else is a bug and is
+# left to FastMCP, which logs it and returns a generic tool error.
+_TOOL_ERRORS = (MALAPIError, MALAuthError, httpx.HTTPError, ValueError)
 
 READ_ONLY = ToolAnnotations(read_only_hint=True)
 MUTATING = ToolAnnotations(read_only_hint=False)
@@ -126,7 +132,7 @@ def register_tools(mcp: FastMCP):
                     "offset": max(0, offset),
                 },
             )
-        except Exception as e:
+        except _TOOL_ERRORS as e:
             return api_error_payload(e)
 
     @mcp.tool(annotations=READ_ONLY)
@@ -137,7 +143,7 @@ def register_tools(mcp: FastMCP):
             return await client().get_public(
                 f"/anime/{anime_id}", params={"fields": fields_param}
             )
-        except Exception as e:
+        except _TOOL_ERRORS as e:
             return api_error_payload(e)
 
     @mcp.tool(annotations=READ_ONLY)
@@ -167,7 +173,7 @@ def register_tools(mcp: FastMCP):
             return await client().get_public(
                 f"/anime/ranking/{ranking_type.value}", params=params
             )
-        except Exception as e:
+        except _TOOL_ERRORS as e:
             return api_error_payload(e)
 
     @mcp.tool(annotations=READ_ONLY)
@@ -201,7 +207,7 @@ def register_tools(mcp: FastMCP):
             return await client().get_public(
                 f"/anime/season/{year}/{season.value}", params=params
             )
-        except Exception as e:
+        except _TOOL_ERRORS as e:
             return api_error_payload(e)
 
     @mcp.tool(annotations=READ_ONLY)
@@ -228,7 +234,7 @@ def register_tools(mcp: FastMCP):
             return await client().get_public(
                 f"/users/{quote(username, safe='')}/animelist", params=params
             )
-        except Exception as e:
+        except _TOOL_ERRORS as e:
             return api_error_payload(e)
 
     # Manga
@@ -244,7 +250,7 @@ def register_tools(mcp: FastMCP):
                     "offset": max(0, offset),
                 },
             )
-        except Exception as e:
+        except _TOOL_ERRORS as e:
             return api_error_payload(e)
 
     @mcp.tool(annotations=READ_ONLY)
@@ -255,7 +261,7 @@ def register_tools(mcp: FastMCP):
             return await client().get_public(
                 f"/manga/{manga_id}", params={"fields": fields_param}
             )
-        except Exception as e:
+        except _TOOL_ERRORS as e:
             return api_error_payload(e)
 
     @mcp.tool(annotations=READ_ONLY)
@@ -285,7 +291,7 @@ def register_tools(mcp: FastMCP):
             return await client().get_public(
                 f"/manga/ranking/{ranking_type.value}", params=params
             )
-        except Exception as e:
+        except _TOOL_ERRORS as e:
             return api_error_payload(e)
 
     @mcp.tool(annotations=READ_ONLY)
@@ -312,7 +318,7 @@ def register_tools(mcp: FastMCP):
             return await client().get_public(
                 f"/users/{quote(username, safe='')}/mangalist", params=params
             )
-        except Exception as e:
+        except _TOOL_ERRORS as e:
             return api_error_payload(e)
 
     @mcp.tool(annotations=READ_ONLY)
@@ -350,7 +356,7 @@ def register_tools(mcp: FastMCP):
             return await client().get_authed(
                 "/users/@me/animelist", await token(), params=params
             )
-        except Exception as e:
+        except _TOOL_ERRORS as e:
             return api_error_payload(e)
 
     @mcp.tool(annotations=READ_ONLY)
@@ -388,7 +394,7 @@ def register_tools(mcp: FastMCP):
             return await client().get_authed(
                 "/users/@me/mangalist", await token(), params=params
             )
-        except Exception as e:
+        except _TOOL_ERRORS as e:
             return api_error_payload(e)
 
     # Forum
@@ -397,7 +403,7 @@ def register_tools(mcp: FastMCP):
         """Fetch MyAnimeList forum boards."""
         try:
             return await client().get_public("/forum/boards")
-        except Exception as e:
+        except _TOOL_ERRORS as e:
             return api_error_payload(e)
 
     @mcp.tool(annotations=READ_ONLY)
@@ -413,7 +419,7 @@ def register_tools(mcp: FastMCP):
                     "offset": max(0, offset),
                 },
             )
-        except Exception as e:
+        except _TOOL_ERRORS as e:
             return api_error_payload(e)
 
     @mcp.tool(annotations=READ_ONLY)
@@ -445,7 +451,7 @@ def register_tools(mcp: FastMCP):
             if user_name:
                 params["user_name"] = user_name
             return await client().get_public("/forum/topics", params=params)
-        except Exception as e:
+        except _TOOL_ERRORS as e:
             return api_error_payload(e)
 
     # Auth/account helpers
@@ -481,7 +487,7 @@ def register_tools(mcp: FastMCP):
                     "offset": max(0, offset),
                 },
             )
-        except Exception as e:
+        except _TOOL_ERRORS as e:
             return api_error_payload(e)
 
     @mcp.tool(annotations=READ_ONLY)
@@ -492,7 +498,7 @@ def register_tools(mcp: FastMCP):
             return await client().get_authed(
                 "/users/@me", await token(), params=params
             )
-        except Exception as e:
+        except _TOOL_ERRORS as e:
             return api_error_payload(e)
 
     @mcp.tool(annotations=MUTATING)
@@ -503,7 +509,7 @@ def register_tools(mcp: FastMCP):
                 f"/anime/{anime_id}/my_list_status", await token()
             )
             return {"message": f"Anime ID {anime_id} deleted successfully"}
-        except Exception as e:
+        except _TOOL_ERRORS as e:
             return api_error_payload(e)
 
     @mcp.tool(annotations=MUTATING)
@@ -514,7 +520,7 @@ def register_tools(mcp: FastMCP):
                 f"/manga/{manga_id}/my_list_status", await token()
             )
             return {"message": f"Manga ID {manga_id} deleted successfully"}
-        except Exception as e:
+        except _TOOL_ERRORS as e:
             return api_error_payload(e)
 
     @mcp.tool(annotations=MUTATING)
@@ -578,7 +584,7 @@ def register_tools(mcp: FastMCP):
             return await client().put_authed(
                 f"/anime/{anime_id}/my_list_status", await token(), data=fields
             )
-        except Exception as e:
+        except _TOOL_ERRORS as e:
             return api_error_payload(e)
 
     @mcp.tool(annotations=MUTATING)
@@ -645,7 +651,7 @@ def register_tools(mcp: FastMCP):
             return await client().put_authed(
                 f"/manga/{manga_id}/my_list_status", await token(), data=fields
             )
-        except Exception as e:
+        except _TOOL_ERRORS as e:
             return api_error_payload(e)
 
     @mcp.tool(annotations=READ_ONLY)
@@ -664,7 +670,7 @@ def register_tools(mcp: FastMCP):
                 "hours": hours,
                 "digest": upcoming_events_digest(response.text, hours=hours),
             }
-        except Exception as e:
+        except _TOOL_ERRORS as e:
             return api_error_payload(e)
 
     @mcp.tool(annotations=READ_ONLY)
@@ -698,7 +704,7 @@ def register_tools(mcp: FastMCP):
                 else []
             )
             return build_watch_queue(raw_data, calendar_events)
-        except Exception as e:
+        except _TOOL_ERRORS as e:
             return api_error_payload(e)
 
     @mcp.tool(annotations=READ_ONLY)
@@ -710,5 +716,5 @@ def register_tools(mcp: FastMCP):
                 response = await client.get(_MAL_NEWS_RSS_URL)
                 response.raise_for_status()
             return parse_mal_news_rss(response.text, limit)
-        except Exception as e:
+        except (*_TOOL_ERRORS, ElementTree.ParseError) as e:
             return api_error_payload(e)

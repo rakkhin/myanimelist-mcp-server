@@ -4,6 +4,7 @@ import pytest
 from fastmcp.exceptions import ToolError
 
 from tools import tools
+from utils.auth import MALAuthError
 from utils.mal_client import MALAPIError
 
 UPDATE_TOOLS = [
@@ -77,7 +78,7 @@ class TestUpdateTools:
         monkeypatch.setattr(
             tools,
             "get_mal_access_token",
-            AsyncMock(side_effect=RuntimeError("Call 'mal_auth_login' first")),
+            AsyncMock(side_effect=MALAuthError("Call 'mal_auth_login' first")),
         )
 
         result = mal.call(name, **{id_arg: 1}, score=5)

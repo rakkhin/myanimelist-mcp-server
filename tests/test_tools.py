@@ -1046,7 +1046,7 @@ class TestSeasonalAnimeErrorHandling:
         mcp = FastMCP("test")
         with patch("tools.tools.MALClient") as mock_client_cls:
             mock_client = AsyncMock()
-            mock_client.get_public = AsyncMock(side_effect=Exception(""))
+            mock_client.get_public = AsyncMock(side_effect=ValueError(""))
             mock_client_cls.return_value = mock_client
             register_tools(mcp)
 
@@ -1056,7 +1056,7 @@ class TestSeasonalAnimeErrorHandling:
             )
 
             assert "error" in result
-            assert result["error"] == "Exception"
+            assert result["error"] == "ValueError"
 
     def test_get_seasonal_anime_http_error_converted_to_payload(self):
         import httpx
