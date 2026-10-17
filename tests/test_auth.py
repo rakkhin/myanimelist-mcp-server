@@ -72,7 +72,6 @@ def test_capture_authorization_code_ignores_empty_probe_requests(monkeypatch):
 
 
 def test_generate_pkce_defaults_to_plain_for_myanimelist(monkeypatch):
-    monkeypatch.delenv("MAL_PKCE_METHOD", raising=False)
     monkeypatch.setattr(auth, "PKCE_METHOD", "plain")
 
     verifier, challenge, method = auth._generate_pkce()
@@ -771,8 +770,6 @@ def test_refresh_tokens_http_error_keeps_stored_tokens(
 
 def test_exchange_code_requires_client_secret(monkeypatch):
     monkeypatch.setenv("MAL_CLIENT_ID", "client-id")
-    monkeypatch.delenv("MAL_CLIENT_SECRET", raising=False)
-    monkeypatch.setattr(auth, "CLIENT_SECRET", None)
 
     with pytest.raises(ValueError, match="MAL_CLIENT_SECRET"):
         asyncio.run(auth._exchange_code_for_token("code", "verifier"))
@@ -870,8 +867,6 @@ def test_login_initiate_skips_login_when_already_authenticated(login_env):
 def test_login_initiate_requires_client_secret(login_env, monkeypatch):
     _, state = login_env
     monkeypatch.setenv("MAL_CLIENT_ID", "client-id")
-    monkeypatch.delenv("MAL_CLIENT_SECRET", raising=False)
-    monkeypatch.setattr(auth, "CLIENT_SECRET", None)
 
     with pytest.raises(ValueError, match="MAL_CLIENT_SECRET"):
         auth.login_initiate()
@@ -883,7 +878,6 @@ def test_login_initiate_starts_one_watcher_and_reuses_pending_login(
     login_env, oauth_client, monkeypatch
 ):
     _, state = login_env
-    monkeypatch.delenv("MAL_PKCE_METHOD", raising=False)
     monkeypatch.setattr(auth, "PKCE_METHOD", "plain")
     started: list[tuple[str, str]] = []
 

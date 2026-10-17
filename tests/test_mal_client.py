@@ -44,9 +44,7 @@ def test_safe_error_does_not_include_response_body_or_secrets():
     assert "token=<redacted>" in err
 
 
-def test_mal_client_config_requires_client_id_for_public_calls(monkeypatch):
-    monkeypatch.delenv("MAL_CLIENT_ID", raising=False)
-
+def test_mal_client_config_requires_client_id_for_public_calls():
     with pytest.raises(ValueError, match="MAL_CLIENT_ID"):
         MALClientConfig.from_env(require_client_id=True)
 

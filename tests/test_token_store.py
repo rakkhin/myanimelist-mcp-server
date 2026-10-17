@@ -85,7 +85,6 @@ def test_token_store_default_path_uses_hermes_home(
     monkeypatch, tmp_path: Path
 ):
     monkeypatch.setenv("HERMES_HOME", str(tmp_path / "hermes"))
-    monkeypatch.delenv("MAL_TOKEN_STORAGE_PATH", raising=False)
 
     path = TokenStore.default_path()
 
