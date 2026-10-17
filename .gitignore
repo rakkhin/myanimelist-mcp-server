@@ -16,3 +16,6 @@ wheels/
 .coverage
 .coverage.*
 htmlcov/
+
+# Test data
+tests/tool_responses/
