@@ -1,0 +1,64 @@
+{
+  "data": [
+    {
+      "node": {
+        "id": 23225,
+        "title": "Yuru Yuri Nachuyachumi!",
+        "main_picture": {
+          "medium": "https://cdn.myanimelist.net/images/anime/2/73281.jpg",
+          "large": "https://cdn.myanimelist.net/images/anime/2/73281l.jpg"
+        },
+        "alternative_titles": {
+          "synonyms": [
+            "Yuru Yuri OVA",
+            "YuruYuri Nachuyachumi!",
+            "Yuru Yuri Summer Vacation!"
+          ],
+          "en": "",
+          "ja": "ゆるゆり なちゅやちゅみ！"
+        },
+        "nsfw": "white",
+        "mean": 7.85
+      }
+    },
+    {
+      "node": {
+        "id": 34438,
+        "title": "Code Geass: Hangyaku no Lelouch I - Koudou",
+        "main_picture": {
+          "medium": "https://cdn.myanimelist.net/images/anime/6/87709.webp",
+          "large": "https://cdn.myanimelist.net/images/anime/6/87709l.webp"
+        },
+        "alternative_titles": {
+          "synonyms": [
+            "Code Geass: Lelouch of the Rebellion - Awakening"
+          ],
+          "en": "Code Geass: Lelouch of the Rebellion I - Initiation",
+          "ja": "コードギアス 反逆のルルーシュⅠ 興道"
+        },
+        "nsfw": "white",
+        "mean": 7.88
+      }
+    },
+    {
+      "node": {
+        "id": 535,
+        "title": "Slayers Next",
+        "main_picture": {
+          "medium": "https://cdn.myanimelist.net/images/anime/1165/92536.jpg",
+          "large": "https://cdn.myanimelist.net/images/anime/1165/92536l.jpg"
+        },
+        "alternative_titles": {
+          "synonyms": [],
+          "en": "Slayers Next",
+          "ja": "スレイヤーズNEXT"
+        },
+        "nsfw": "white",
+        "mean": 8.02
+      }
+    }
+  ],
+  "paging": {
+    "next": "https://api.myanimelist.net/v2/anime/suggestions?offset=3&limit=3&fields=id%2Ctitle%2Calternative_titles%2Cmain_picture%2Cnsfw%2Cmean"
+  }
+}

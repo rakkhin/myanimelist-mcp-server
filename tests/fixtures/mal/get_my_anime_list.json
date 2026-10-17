@@ -1,0 +1,86 @@
+{
+  "data": [
+    {
+      "node": {
+        "id": 41380,
+        "title": "100-man no Inochi no Ue ni Ore wa Tatteiru",
+        "main_picture": {
+          "medium": "https://cdn.myanimelist.net/images/anime/1506/117717.webp",
+          "large": "https://cdn.myanimelist.net/images/anime/1506/117717l.webp"
+        },
+        "alternative_titles": {
+          "synonyms": [
+            "I'm standing on 1,000,000 lives."
+          ],
+          "en": "I'm Standing on a Million Lives",
+          "ja": "100万の命の上に俺は立っている"
+        },
+        "nsfw": "white",
+        "mean": 6.52
+      },
+      "list_status": {
+        "status": "dropped",
+        "score": 3,
+        "num_episodes_watched": 19,
+        "is_rewatching": false,
+        "updated_at": "2021-10-30T22:43:42+00:00"
+      }
+    },
+    {
+      "node": {
+        "id": 44881,
+        "title": "100-man no Inochi no Ue ni Ore wa Tatteiru 2nd Season",
+        "main_picture": {
+          "medium": "https://cdn.myanimelist.net/images/anime/1424/117718.jpg",
+          "large": "https://cdn.myanimelist.net/images/anime/1424/117718l.jpg"
+        },
+        "alternative_titles": {
+          "synonyms": [
+            "I'm standing on 1,000,000 lives. Season 2"
+          ],
+          "en": "I’m Standing on a Million Lives Season 2",
+          "ja": "100万の命の上に俺は立っている"
+        },
+        "nsfw": "white",
+        "mean": 6.79
+      },
+      "list_status": {
+        "status": "on_hold",
+        "score": 6,
+        "num_episodes_watched": 2,
+        "is_rewatching": false,
+        "updated_at": "2015-04-25T09:26:01+00:00"
+      }
+    },
+    {
+      "node": {
+        "id": 61637,
+        "title": "29-sai Dokushin Chuuken Boukensha no Nichijou",
+        "main_picture": {
+          "medium": "https://cdn.myanimelist.net/images/anime/1765/154087.jpg",
+          "large": "https://cdn.myanimelist.net/images/anime/1765/154087l.jpg"
+        },
+        "alternative_titles": {
+          "synonyms": [
+            "Everyday of the 29 years old single person adventurer",
+            "The Daily Life of a Single 29-Year-Old Adventurer"
+          ],
+          "en": "An Adventurer's Daily Grind at Age 29",
+          "ja": "29歳独身中堅冒険者の日常"
+        },
+        "nsfw": "white",
+        "mean": 6.58
+      },
+      "list_status": {
+        "status": "completed",
+        "score": 3,
+        "num_episodes_watched": 13,
+        "is_rewatching": false,
+        "updated_at": "2013-10-05T10:57:37+00:00"
+      }
+    }
+  ],
+  "paging": {
+    "next": "https://api.myanimelist.net/v2/users/@me/animelist?offset=3&limit=3&fields=id%2Ctitle%2Calternative_titles%2Cmain_picture%2Cnsfw%2Cmean%2Clist_status"
+  }
+}

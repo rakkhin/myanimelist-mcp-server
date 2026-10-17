@@ -1,0 +1,89 @@
+{
+  "data": [
+    {
+      "node": {
+        "id": 7669,
+        "title": "\"Bungaku Shoujo\" Kyou no Oyatsu: Hatsukoi",
+        "main_picture": {
+          "medium": "https://cdn.myanimelist.net/images/anime/1671/127574.jpg",
+          "large": "https://cdn.myanimelist.net/images/anime/1671/127574l.jpg"
+        },
+        "alternative_titles": {
+          "synonyms": [
+            "Bungaku Shoujo OVA",
+            "Book Girl OVA",
+            "Literature Girl OVA"
+          ],
+          "en": "",
+          "ja": "“文学少女”今日のおやつ 〜はつ恋〜"
+        },
+        "nsfw": "white",
+        "mean": 6.85
+      },
+      "list_status": {
+        "status": "on_hold",
+        "score": 9,
+        "num_episodes_watched": 24,
+        "is_rewatching": false,
+        "updated_at": "2010-08-25T19:14:13+00:00"
+      }
+    },
+    {
+      "node": {
+        "id": 8481,
+        "title": "\"Bungaku Shoujo\" Memoire",
+        "main_picture": {
+          "medium": "https://cdn.myanimelist.net/images/anime/6/26770.jpg",
+          "large": "https://cdn.myanimelist.net/images/anime/6/26770l.jpg"
+        },
+        "alternative_titles": {
+          "synonyms": [
+            "Book Girl: Memoire",
+            "Literature Girl: Memoire"
+          ],
+          "en": "",
+          "ja": "“文学少女”メモワール"
+        },
+        "nsfw": "white",
+        "mean": 7.25
+      },
+      "list_status": {
+        "status": "watching",
+        "score": 8,
+        "num_episodes_watched": 19,
+        "is_rewatching": false,
+        "updated_at": "2022-11-06T05:10:38+00:00"
+      }
+    },
+    {
+      "node": {
+        "id": 6408,
+        "title": "\"Bungaku Shoujo\" Movie",
+        "main_picture": {
+          "medium": "https://cdn.myanimelist.net/images/anime/8/81162.jpg",
+          "large": "https://cdn.myanimelist.net/images/anime/8/81162l.jpg"
+        },
+        "alternative_titles": {
+          "synonyms": [
+            "Book Girl",
+            "Literature Girl"
+          ],
+          "en": "",
+          "ja": "劇場版“文学少女”"
+        },
+        "nsfw": "white",
+        "mean": 7.31
+      },
+      "list_status": {
+        "status": "watching",
+        "score": 9,
+        "num_episodes_watched": 2,
+        "is_rewatching": false,
+        "updated_at": "2005-08-14T19:06:19+00:00"
+      }
+    }
+  ],
+  "paging": {
+    "next": "https://api.myanimelist.net/v2/users/user_2569/animelist?offset=3&limit=3&fields=id%2Ctitle%2Calternative_titles%2Cmain_picture%2Cnsfw%2Cmean%2Clist_status"
+  }
+}

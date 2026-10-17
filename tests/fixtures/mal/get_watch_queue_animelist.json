@@ -1,0 +1,309 @@
+{
+  "data": [
+    {
+      "node": {
+        "id": 61967,
+        "title": "Black Clover 2nd Season",
+        "main_picture": {
+          "medium": "https://cdn.myanimelist.net/images/anime/1857/160133.jpg",
+          "large": "https://cdn.myanimelist.net/images/anime/1857/160133l.jpg"
+        },
+        "num_episodes": 0,
+        "status": "currently_airing"
+      },
+      "list_status": {
+        "status": "watching",
+        "score": 4,
+        "num_episodes_watched": 17,
+        "is_rewatching": false,
+        "updated_at": "2018-11-24T07:02:16+00:00"
+      }
+    },
+    {
+      "node": {
+        "id": 62590,
+        "title": "Hotel Inhumans 2nd Season",
+        "main_picture": {
+          "medium": "https://cdn.myanimelist.net/images/anime/1903/159928.jpg",
+          "large": "https://cdn.myanimelist.net/images/anime/1903/159928l.jpg"
+        },
+        "num_episodes": 13,
+        "status": "currently_airing"
+      },
+      "list_status": {
+        "status": "watching",
+        "score": 1,
+        "num_episodes_watched": 8,
+        "is_rewatching": false,
+        "updated_at": "2017-03-15T03:11:50+00:00"
+      }
+    },
+    {
+      "node": {
+        "id": 57612,
+        "title": "Kikansha no Mahou wa Tokubetsu desu 2nd Season",
+        "main_picture": {
+          "medium": "https://cdn.myanimelist.net/images/anime/1740/160052.jpg",
+          "large": "https://cdn.myanimelist.net/images/anime/1740/160052l.jpg"
+        },
+        "num_episodes": 0,
+        "status": "currently_airing"
+      },
+      "list_status": {
+        "status": "watching",
+        "score": 0,
+        "num_episodes_watched": 2,
+        "is_rewatching": false,
+        "updated_at": "2022-12-03T11:55:51+00:00"
+      }
+    },
+    {
+      "node": {
+        "id": 61987,
+        "title": "Kusuriya no Hitorigoto 3rd Season",
+        "main_picture": {
+          "medium": "https://cdn.myanimelist.net/images/anime/1028/160277.jpg",
+          "large": "https://cdn.myanimelist.net/images/anime/1028/160277l.jpg"
+        },
+        "num_episodes": 12,
+        "status": "currently_airing"
+      },
+      "list_status": {
+        "status": "watching",
+        "score": 1,
+        "num_episodes_watched": 12,
+        "is_rewatching": false,
+        "updated_at": "2025-11-08T01:01:00+00:00"
+      }
+    },
+    {
+      "node": {
+        "id": 63382,
+        "title": "Kyouran Reijou Nia Liston: Byoujaku Reijou ni Tensei shita Kamigoroshi no Bujin no Karei Naru Musouroku",
+        "main_picture": {
+          "medium": "https://cdn.myanimelist.net/images/anime/1000/159223.jpg",
+          "large": "https://cdn.myanimelist.net/images/anime/1000/159223l.jpg"
+        },
+        "num_episodes": 25,
+        "status": "currently_airing"
+      },
+      "list_status": {
+        "status": "watching",
+        "score": 4,
+        "num_episodes_watched": 0,
+        "is_rewatching": false,
+        "updated_at": "2025-08-22T11:29:58+00:00"
+      }
+    },
+    {
+      "node": {
+        "id": 63098,
+        "title": "Psyren",
+        "main_picture": {
+          "medium": "https://cdn.myanimelist.net/images/anime/1000/160405.jpg",
+          "large": "https://cdn.myanimelist.net/images/anime/1000/160405l.jpg"
+        },
+        "num_episodes": 0,
+        "status": "currently_airing"
+      },
+      "list_status": {
+        "status": "watching",
+        "score": 10,
+        "num_episodes_watched": 17,
+        "is_rewatching": false,
+        "updated_at": "2021-07-10T22:45:56+00:00"
+      }
+    },
+    {
+      "node": {
+        "id": 59787,
+        "title": "Romelia Senki",
+        "main_picture": {
+          "medium": "https://cdn.myanimelist.net/images/anime/1208/160008.jpg",
+          "large": "https://cdn.myanimelist.net/images/anime/1208/160008l.jpg"
+        },
+        "num_episodes": 0,
+        "status": "currently_airing"
+      },
+      "list_status": {
+        "status": "watching",
+        "score": 10,
+        "num_episodes_watched": 7,
+        "is_rewatching": false,
+        "updated_at": "2011-01-31T02:13:34+00:00"
+      }
+    },
+    {
+      "node": {
+        "id": 61469,
+        "title": "Steel Ball Run: JoJo no Kimyou na Bouken",
+        "main_picture": {
+          "medium": "https://cdn.myanimelist.net/images/anime/1065/158884.jpg",
+          "large": "https://cdn.myanimelist.net/images/anime/1065/158884l.jpg"
+        },
+        "num_episodes": 0,
+        "status": "currently_airing"
+      },
+      "list_status": {
+        "status": "watching",
+        "score": 4,
+        "num_episodes_watched": 12,
+        "is_rewatching": false,
+        "updated_at": "2010-05-21T13:04:25+00:00"
+      }
+    },
+    {
+      "node": {
+        "id": 52480,
+        "title": "Tantei wa Mou, Shindeiru. Season 2",
+        "main_picture": {
+          "medium": "https://cdn.myanimelist.net/images/anime/1414/160406.jpg",
+          "large": "https://cdn.myanimelist.net/images/anime/1414/160406l.jpg"
+        },
+        "num_episodes": 13,
+        "status": "currently_airing"
+      },
+      "list_status": {
+        "status": "watching",
+        "score": 9,
+        "num_episodes_watched": 10,
+        "is_rewatching": false,
+        "updated_at": "2016-07-03T13:51:19+00:00"
+      }
+    },
+    {
+      "node": {
+        "id": 64340,
+        "title": "Tempal: Item no Chikara",
+        "main_picture": {
+          "medium": "https://cdn.myanimelist.net/images/anime/1386/160022.jpg",
+          "large": "https://cdn.myanimelist.net/images/anime/1386/160022l.jpg"
+        },
+        "num_episodes": 12,
+        "status": "currently_airing"
+      },
+      "list_status": {
+        "status": "watching",
+        "score": 3,
+        "num_episodes_watched": 8,
+        "is_rewatching": false,
+        "updated_at": "2016-11-21T15:32:50+00:00"
+      }
+    },
+    {
+      "node": {
+        "id": 63712,
+        "title": "Tensei Goblin dakedo Shitsumon Aru?",
+        "main_picture": {
+          "medium": "https://cdn.myanimelist.net/images/anime/1760/159941.jpg",
+          "large": "https://cdn.myanimelist.net/images/anime/1760/159941l.jpg"
+        },
+        "num_episodes": 0,
+        "status": "currently_airing"
+      },
+      "list_status": {
+        "status": "watching",
+        "score": 5,
+        "num_episodes_watched": 15,
+        "is_rewatching": false,
+        "updated_at": "2014-08-18T18:17:36+00:00"
+      }
+    },
+    {
+      "node": {
+        "id": 60601,
+        "title": "Tensei Kizoku, Kantei Skill de Nariagaru 3rd Season",
+        "main_picture": {
+          "medium": "https://cdn.myanimelist.net/images/anime/1533/159859.jpg",
+          "large": "https://cdn.myanimelist.net/images/anime/1533/159859l.jpg"
+        },
+        "num_episodes": 0,
+        "status": "currently_airing"
+      },
+      "list_status": {
+        "status": "watching",
+        "score": 2,
+        "num_episodes_watched": 10,
+        "is_rewatching": false,
+        "updated_at": "2021-01-17T07:24:17+00:00"
+      }
+    },
+    {
+      "node": {
+        "id": 53913,
+        "title": "Tensei shitara Ken deshita II",
+        "main_picture": {
+          "medium": "https://cdn.myanimelist.net/images/anime/1539/159559.jpg",
+          "large": "https://cdn.myanimelist.net/images/anime/1539/159559l.jpg"
+        },
+        "num_episodes": 12,
+        "status": "currently_airing"
+      },
+      "list_status": {
+        "status": "watching",
+        "score": 2,
+        "num_episodes_watched": 2,
+        "is_rewatching": false,
+        "updated_at": "2020-07-02T02:11:12+00:00"
+      }
+    },
+    {
+      "node": {
+        "id": 59088,
+        "title": "Tokyo Revengers: Santen Sensou-hen",
+        "main_picture": {
+          "medium": "https://cdn.myanimelist.net/images/anime/1321/159720.jpg",
+          "large": "https://cdn.myanimelist.net/images/anime/1321/159720l.jpg"
+        },
+        "num_episodes": 13,
+        "status": "currently_airing"
+      },
+      "list_status": {
+        "status": "watching",
+        "score": 6,
+        "num_episodes_watched": 1,
+        "is_rewatching": false,
+        "updated_at": "2020-12-23T07:23:17+00:00"
+      }
+    },
+    {
+      "node": {
+        "id": 59741,
+        "title": "Tsuihou sareta Tensei Juukishi wa Game Chishiki de Musou suru",
+        "main_picture": {
+          "medium": "https://cdn.myanimelist.net/images/anime/1322/158711.jpg",
+          "large": "https://cdn.myanimelist.net/images/anime/1322/158711l.jpg"
+        },
+        "num_episodes": 26,
+        "status": "currently_airing"
+      },
+      "list_status": {
+        "status": "watching",
+        "score": 3,
+        "num_episodes_watched": 6,
+        "is_rewatching": false,
+        "updated_at": "2017-01-04T06:45:04+00:00"
+      }
+    },
+    {
+      "node": {
+        "id": 63140,
+        "title": "Yasei no Last Boss ga Arawareta! 2nd Season",
+        "main_picture": {
+          "medium": "https://cdn.myanimelist.net/images/anime/1689/160128.jpg",
+          "large": "https://cdn.myanimelist.net/images/anime/1689/160128l.jpg"
+        },
+        "num_episodes": 0,
+        "status": "currently_airing"
+      },
+      "list_status": {
+        "status": "watching",
+        "score": 4,
+        "num_episodes_watched": 0,
+        "is_rewatching": false,
+        "updated_at": "2010-05-03T20:45:11+00:00"
+      }
+    }
+  ],
+  "paging": {}
+}
