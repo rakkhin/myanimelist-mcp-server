@@ -52,12 +52,26 @@ jobs:
           title: Coverage
           default-branch: master
 
+  dependency-scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: write # dependency scan comment
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # No cache: it is keyed on uv.lock, and this job would save one holding
+      # only pip-audit under the same key as the test job's.
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          enable-cache: false
+
       # Checks the exact locked versions, dev group included, by their hashes.
       # Records the result; the last step fails the job, after the report is
       # published.
       - name: Scan dependencies for known vulnerabilities
         id: audit
-        if: ${{ !cancelled() }}
         shell: bash
         run: |
           requirements="$RUNNER_TEMP/requirements.txt"
@@ -94,7 +108,6 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Publish dependency scan report
-        if: ${{ !cancelled() && steps.audit.outcome == 'success' }}
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           REPORT: ${{ steps.audit.outputs.report }}
@@ -118,7 +131,7 @@ jobs:
             }
 
       - name: Fail on known vulnerabilities
-        if: ${{ !cancelled() && steps.audit.outputs.status != '0' }}
+        if: ${{ steps.audit.outputs.status != '0' }}
         run: |
           echo "::error::pip-audit reported known vulnerabilities, or the scan failed. See the dependency scan report."
           exit 1
