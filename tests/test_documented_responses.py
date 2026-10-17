@@ -6,7 +6,9 @@ request below is the documentation's own curl example. A round trip on a
 real list matched those samples exactly. It also showed that deletes answer
 200 with "[]" (the documentation shows null), even for a title that is not
 on the list, so the delete files hold that recorded body. MALClient turns it
-into {"ok": True}, which is what the delete tools receive.
+into {"ok": True}, which is what the delete tools receive. MAL answers 404
+only for an anime or manga id that does not exist; not_found.json holds
+that recorded body.
 """
 
 import json
@@ -79,10 +81,15 @@ def test_delete_reports_success_for_empty_client_result(
 
 
 @pytest.mark.parametrize(("name", "id_arg", "label"), DELETE_TOOLS)
-def test_delete_reports_http_errors_as_payload(mal, name, id_arg, label):
+def test_delete_reports_nonexistent_title_as_error_payload(
+    mal, name, id_arg, label
+):
     request = httpx.Request("DELETE", "https://api.myanimelist.net/v2/x")
+    response = httpx.Response(
+        404, request=request, json=load("not_found.json")
+    )
     mal.client.delete_authed.side_effect = httpx.HTTPStatusError(
-        "404", request=request, response=httpx.Response(404, request=request)
+        "404", request=request, response=response
     )
 
     result = mal.call_over_mcp(name, {id_arg: 21})
