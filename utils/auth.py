@@ -358,6 +358,10 @@ def login_initiate() -> dict[str, Any]:
             "redirect_uri": REDIRECT_URI,
         }
 
+    # The callback watcher runs as a task on the caller's event loop. Fail
+    # before touching login state if there is none, as the task would never run.
+    loop = asyncio.get_running_loop()
+
     state = secrets.token_urlsafe(16)
     verifier, challenge, challenge_method = _generate_pkce()
     auth_url = _authorization_url(state, challenge, challenge_method)
@@ -373,12 +377,6 @@ def login_initiate() -> dict[str, Any]:
         }
     )
 
-    # Start the callback watcher as a background asyncio task.
-    try:
-        loop = asyncio.get_running_loop()
-    except RuntimeError:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
     task = loop.create_task(_watch_login(state, verifier))
     _login_state["task"] = task
 

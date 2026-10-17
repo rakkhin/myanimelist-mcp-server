@@ -1059,3 +1059,12 @@ def test_get_auth_status_skips_refresh_when_refreshed_while_waiting(
     assert result["authenticated"] is True
     assert result["expires_at"] == refreshed.expires_at
     refresh.assert_not_awaited()
+
+
+def test_login_initiate_requires_running_event_loop(login_env, oauth_client):
+    _, state = login_env
+
+    with pytest.raises(RuntimeError, match="no running event loop"):
+        auth.login_initiate()
+
+    assert state == {}
