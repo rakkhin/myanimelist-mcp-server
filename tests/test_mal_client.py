@@ -273,15 +273,15 @@ class TestRequestHeadersAndMethods:
             data=None,
         )
 
-    def test_put_sends_form_encoded_data(self, mal_http):
+    def test_patch_sends_form_encoded_data(self, mal_http):
         asyncio.run(
-            _client().put_authed(
+            _client().patch_authed(
                 "/anime/1/my_list_status", "tok", data={"score": 9}
             )
         )
 
         mal_http.request.assert_awaited_once_with(
-            "PUT",
+            "PATCH",
             "https://api.test/anime/1/my_list_status",
             headers={
                 "Authorization": "Bearer tok",

@@ -616,7 +616,7 @@ def register_tools(mcp: FastMCP):
                 return {
                     "error": "At least one field must be provided to update the anime"
                 }
-            return await client().put_authed(
+            return await client().patch_authed(
                 f"/anime/{anime_id}/my_list_status", await token(), data=fields
             )
         except _TOOL_ERRORS as e:
@@ -683,7 +683,7 @@ def register_tools(mcp: FastMCP):
                 return {
                     "error": "At least one field must be provided to update the manga"
                 }
-            return await client().put_authed(
+            return await client().patch_authed(
                 f"/manga/{manga_id}/my_list_status", await token(), data=fields
             )
         except _TOOL_ERRORS as e:

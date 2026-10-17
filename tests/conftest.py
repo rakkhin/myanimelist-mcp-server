@@ -70,7 +70,7 @@ def mal(monkeypatch):
     mock_client = AsyncMock()
     mock_client.get_public = AsyncMock(return_value={"data": []})
     mock_client.get_authed = AsyncMock(return_value={"data": []})
-    mock_client.put_authed = AsyncMock(return_value={"status": "watching"})
+    mock_client.patch_authed = AsyncMock(return_value={"status": "watching"})
     mock_client.delete_authed = AsyncMock(return_value={"ok": True})
     monkeypatch.setattr(tools, "MALClient", lambda: mock_client)
     monkeypatch.setattr(

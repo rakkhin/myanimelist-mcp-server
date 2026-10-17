@@ -164,10 +164,10 @@ class MALClient:
     ) -> dict[str, Any]:
         return await self.request("GET", endpoint, token=token, params=params)
 
-    async def put_authed(
+    async def patch_authed(
         self, endpoint: str, token: str, *, data: dict[str, Any]
     ) -> dict[str, Any]:
-        return await self.request("PUT", endpoint, token=token, data=data)
+        return await self.request("PATCH", endpoint, token=token, data=data)
 
     async def delete_authed(self, endpoint: str, token: str) -> dict[str, Any]:
         return await self.request("DELETE", endpoint, token=token)

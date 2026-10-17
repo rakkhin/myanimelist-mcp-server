@@ -50,11 +50,11 @@ def test_update_sends_documented_request_and_returns_documented_response(
     mal, name, arguments, endpoint, form
 ):
     documented = load(f"{name}.json")
-    mal.client.put_authed.return_value = documented
+    mal.client.patch_authed.return_value = documented
 
     result = mal.call_over_mcp(name, arguments)
 
-    mal.client.put_authed.assert_awaited_once_with(
+    mal.client.patch_authed.assert_awaited_once_with(
         endpoint, "test-token", data=form
     )
     assert not result.is_error

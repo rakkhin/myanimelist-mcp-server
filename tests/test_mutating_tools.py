@@ -27,7 +27,7 @@ class TestUpdateTools:
             is_rewatching=False,
         )
 
-        mal.client.put_authed.assert_awaited_once_with(
+        mal.client.patch_authed.assert_awaited_once_with(
             "/anime/21/my_list_status",
             "test-token",
             data={"status": "watching", "score": 0, "is_rewatching": False},
@@ -42,7 +42,7 @@ class TestUpdateTools:
             tags="favorite",
         )
 
-        mal.client.put_authed.assert_awaited_once_with(
+        mal.client.patch_authed.assert_awaited_once_with(
             "/manga/2/my_list_status",
             "test-token",
             data={"num_chapters_read": 150, "tags": "favorite"},
@@ -57,13 +57,13 @@ class TestUpdateTools:
         assert result == {
             "error": f"At least one field must be provided to update the {kind}"
         }
-        mal.client.put_authed.assert_not_awaited()
+        mal.client.patch_authed.assert_not_awaited()
 
     @pytest.mark.parametrize(("name", "id_arg", "kind"), UPDATE_TOOLS)
     def test_update_returns_error_payload_when_mal_rejects(
         self, mal, name, id_arg, kind
     ):
-        mal.client.put_authed.side_effect = MALAPIError(
+        mal.client.patch_authed.side_effect = MALAPIError(
             "MAL API returned an error"
         )
 
@@ -84,7 +84,7 @@ class TestUpdateTools:
         result = mal.call(name, **{id_arg: 1}, score=5)
 
         assert "mal_auth_login" in result["error"]
-        mal.client.put_authed.assert_not_awaited()
+        mal.client.patch_authed.assert_not_awaited()
 
 
 class TestDeleteTools:
@@ -139,7 +139,7 @@ class TestArgumentValidationOverMcp:
         with pytest.raises(ToolError):
             mal.call_over_mcp(name, arguments)
 
-        mal.client.put_authed.assert_not_awaited()
+        mal.client.patch_authed.assert_not_awaited()
 
     def test_valid_arguments_reach_mal(self, mal):
         mal.call_over_mcp(
@@ -147,7 +147,7 @@ class TestArgumentValidationOverMcp:
             {"anime_id": 1, "status": "completed", "score": 10},
         )
 
-        mal.client.put_authed.assert_awaited_once_with(
+        mal.client.patch_authed.assert_awaited_once_with(
             "/anime/1/my_list_status",
             "test-token",
             data={"status": "completed", "score": 10},
