@@ -39,8 +39,6 @@ _SECRET_PATTERNS = [
     ),
 ]
 
-_FIELD_RE = re.compile(r"^[A-Za-z0-9_,.]+$")
-
 
 def safe_error(message: str) -> str:
     clean = message
@@ -56,21 +54,10 @@ def clamp_limit(limit: int, maximum: int = 100) -> int:
 def build_fields(
     fields: Iterable[AnimeFields] | None, default: Iterable[AnimeFields]
 ) -> str:
-    if fields is None:
-        selected = default
-    else:
-        selected = [*fields, *default]
     deduped: list[str] = []
-    for field in selected:
-        field = str(field.value).strip()
-        if not field:
-            continue
-        if not _FIELD_RE.match(field):
-            raise ValueError(f"Invalid field name: {field}")
-        if field not in deduped:
-            deduped.append(field)
-    if not deduped:
-        deduped = [x.value for x in default]
+    for field in [*(fields or []), *default]:
+        if field.value not in deduped:
+            deduped.append(field.value)
     return ",".join(deduped)
 
 
