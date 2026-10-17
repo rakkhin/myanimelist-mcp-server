@@ -504,8 +504,10 @@ def register_tools(mcp: FastMCP):
             return api_error_payload(e)
 
     @mcp.tool(annotations=READ_ONLY)
-    async def get_user_profile(fields: str | None = None) -> dict:
-        """Fetch the authenticated user's MyAnimeList profile. Use fields=anime_statistics to get stats."""
+    async def get_user_profile(
+        fields: str | None = "anime_statistics",
+    ) -> dict:
+        """Fetch the authenticated user's MyAnimeList profile, including anime statistics by default."""
         try:
             params = {"fields": fields} if fields else None
             return await client().get_authed(

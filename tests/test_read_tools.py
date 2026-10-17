@@ -255,11 +255,18 @@ class TestAuthenticatedTools:
             params={"limit": 100, "offset": 0},
         )
 
+    def test_user_profile_requests_anime_statistics_by_default(self, mal):
+        mal.call_over_mcp("get_user_profile", {})
+
+        mal.client.get_authed.assert_awaited_once_with(
+            "/users/@me", "test-token", params={"fields": "anime_statistics"}
+        )
+
     @pytest.mark.parametrize(
         ("fields", "params"),
-        [(None, None), ("anime_statistics", {"fields": "anime_statistics"})],
+        [(None, None), ("birthday", {"fields": "birthday"})],
     )
-    def test_user_profile_passes_fields_only_when_given(
+    def test_user_profile_explicit_fields_replace_default(
         self, mal, fields, params
     ):
         mal.call("get_user_profile", fields=fields)
