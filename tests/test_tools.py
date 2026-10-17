@@ -21,6 +21,15 @@ from utils.schemas import (
     Season,
 )
 
+DEFAULT_ANIME_FIELDS = (
+    f"{AnimeFields.ID},{AnimeFields.TITLE},{AnimeFields.ALTERNATIVE_TITLES},"
+    f"{AnimeFields.MAIN_PICTURE},{AnimeFields.NSFW},{AnimeFields.MEAN}"
+)
+DEFAULT_MANGA_FIELDS = (
+    f"{MangaFields.ID},{MangaFields.TITLE},{MangaFields.ALTERNATIVE_TITLES},"
+    f"{MangaFields.MAIN_PICTURE},{MangaFields.NSFW},{MangaFields.MEAN}"
+)
+
 
 class TestToolRegistration:
     def test_all_tools_register(self):
@@ -336,7 +345,7 @@ class TestToolRegistration:
         assert params["sort"] == "recent"
         assert params["limit"] == 100
 
-    def test_ranking_fields_not_in_params_when_none(self):
+    def test_ranking_sends_default_fields_when_none(self):
         from fastmcp import FastMCP
 
         mcp = FastMCP("test")
@@ -350,7 +359,7 @@ class TestToolRegistration:
         asyncio.run(tool.fn(AnimeRanking.ALL, 5, 0, None))
 
         params = mock_client.get_public.call_args.kwargs["params"]
-        assert "fields" not in params
+        assert params["fields"] == DEFAULT_ANIME_FIELDS
 
     def test_get_my_anime_list_endpoint_path(self):
         from fastmcp import FastMCP
@@ -662,7 +671,7 @@ class TestToolRegistration:
             assert "fields" in params
             assert "mean" in params["fields"]
 
-    def test_get_my_anime_list_requests_only_list_status_without_fields(
+    def test_get_my_anime_list_requests_default_fields_without_fields(
         self,
     ):
         from fastmcp import FastMCP
@@ -684,9 +693,9 @@ class TestToolRegistration:
             asyncio.run(tool.fn(None, None, 10, 0, None))
 
             params = mock_client.get_authed.call_args.kwargs["params"]
-            assert params["fields"] == "list_status"
+            assert params["fields"] == f"{DEFAULT_ANIME_FIELDS},list_status"
 
-    def test_get_my_manga_list_requests_only_list_status_without_fields(
+    def test_get_my_manga_list_requests_default_fields_without_fields(
         self,
     ):
         from fastmcp import FastMCP
@@ -708,7 +717,7 @@ class TestToolRegistration:
             asyncio.run(tool.fn(None, None, 10, 0, None))
 
             params = mock_client.get_authed.call_args.kwargs["params"]
-            assert params["fields"] == "list_status"
+            assert params["fields"] == f"{DEFAULT_MANGA_FIELDS},list_status"
 
     def test_get_my_anime_list_missing_token_error(self):
         from fastmcp import FastMCP

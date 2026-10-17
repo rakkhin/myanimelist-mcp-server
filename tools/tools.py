@@ -53,8 +53,28 @@ MUTATING = ToolAnnotations(read_only_hint=False)
 _LIST_STATUS = "list_status"
 
 
-def _with_list_status(node_fields: str | None) -> str:
-    return f"{node_fields},{_LIST_STATUS}" if node_fields else _LIST_STATUS
+def _with_list_status(node_fields: str) -> str:
+    return f"{node_fields},{_LIST_STATUS}"
+
+
+# Fields every anime and manga response includes, so it has the same shape
+# whether or not the caller asks for more. Requested fields come first.
+_DEFAULT_ANIME_FIELDS = (
+    AnimeFields.ID,
+    AnimeFields.TITLE,
+    AnimeFields.ALTERNATIVE_TITLES,
+    AnimeFields.MAIN_PICTURE,
+    AnimeFields.NSFW,
+    AnimeFields.MEAN,
+)
+_DEFAULT_MANGA_FIELDS = (
+    MangaFields.ID,
+    MangaFields.TITLE,
+    MangaFields.ALTERNATIVE_TITLES,
+    MangaFields.MAIN_PICTURE,
+    MangaFields.NSFW,
+    MangaFields.MEAN,
+)
 
 
 def anime_calendar_ical_url(username: str) -> str:
@@ -139,6 +159,7 @@ def register_tools(mcp: FastMCP):
                     "q": q,
                     "limit": clamp_limit(limit, 100),
                     "offset": max(0, offset),
+                    "fields": build_fields(None, _DEFAULT_ANIME_FIELDS),
                 },
             )
         except _TOOL_ERRORS as e:
@@ -169,17 +190,7 @@ def register_tools(mcp: FastMCP):
                 "limit": clamp_limit(limit, 500),
                 "offset": max(0, offset),
             }
-            if fields:
-                params["fields"] = build_fields(
-                    fields,
-                    [
-                        AnimeFields.ID,
-                        AnimeFields.TITLE,
-                        AnimeFields.ALTERNATIVE_TITLES,
-                        AnimeFields.MAIN_PICTURE,
-                        AnimeFields.NSFW,
-                    ],
-                )
+            params["fields"] = build_fields(fields, _DEFAULT_ANIME_FIELDS)
             return await client().get_public("/anime/ranking", params=params)
         except _TOOL_ERRORS as e:
             return api_error_payload(e)
@@ -201,17 +212,7 @@ def register_tools(mcp: FastMCP):
             }
             if sort:
                 params["sort"] = sort
-            if fields:
-                params["fields"] = build_fields(
-                    fields,
-                    [
-                        AnimeFields.ID,
-                        AnimeFields.TITLE,
-                        AnimeFields.ALTERNATIVE_TITLES,
-                        AnimeFields.MAIN_PICTURE,
-                        AnimeFields.NSFW,
-                    ],
-                )
+            params["fields"] = build_fields(fields, _DEFAULT_ANIME_FIELDS)
             return await client().get_public(
                 f"/anime/season/{year}/{season}", params=params
             )
@@ -239,7 +240,9 @@ def register_tools(mcp: FastMCP):
                 params["sort"] = sort
             if nsfw:
                 params["nsfw"] = "true"
-            params["fields"] = _LIST_STATUS
+            params["fields"] = _with_list_status(
+                build_fields(None, _DEFAULT_ANIME_FIELDS)
+            )
             return await client().get_public(
                 f"/users/{quote(username, safe='')}/animelist", params=params
             )
@@ -257,6 +260,7 @@ def register_tools(mcp: FastMCP):
                     "q": q,
                     "limit": clamp_limit(limit, 100),
                     "offset": max(0, offset),
+                    "fields": build_fields(None, _DEFAULT_MANGA_FIELDS),
                 },
             )
         except _TOOL_ERRORS as e:
@@ -287,17 +291,7 @@ def register_tools(mcp: FastMCP):
                 "limit": clamp_limit(limit, 500),
                 "offset": max(0, offset),
             }
-            if fields:
-                params["fields"] = build_fields(
-                    fields,
-                    [
-                        MangaFields.ID,
-                        MangaFields.TITLE,
-                        MangaFields.ALTERNATIVE_TITLES,
-                        MangaFields.MAIN_PICTURE,
-                        MangaFields.NSFW,
-                    ],
-                )
+            params["fields"] = build_fields(fields, _DEFAULT_MANGA_FIELDS)
             return await client().get_public("/manga/ranking", params=params)
         except _TOOL_ERRORS as e:
             return api_error_payload(e)
@@ -323,7 +317,9 @@ def register_tools(mcp: FastMCP):
                 params["sort"] = sort
             if nsfw:
                 params["nsfw"] = "true"
-            params["fields"] = _LIST_STATUS
+            params["fields"] = _with_list_status(
+                build_fields(None, _DEFAULT_MANGA_FIELDS)
+            )
             return await client().get_public(
                 f"/users/{quote(username, safe='')}/mangalist", params=params
             )
@@ -349,21 +345,11 @@ def register_tools(mcp: FastMCP):
                 params["status"] = status
             if sort:
                 params["sort"] = sort
-            node_fields = None
-            if fields:
-                node_fields = build_fields(
-                    fields,
-                    [
-                        AnimeFields.ID,
-                        AnimeFields.TITLE,
-                        AnimeFields.ALTERNATIVE_TITLES,
-                        AnimeFields.MAIN_PICTURE,
-                        AnimeFields.NSFW,
-                    ],
-                )
+            params["fields"] = _with_list_status(
+                build_fields(fields, _DEFAULT_ANIME_FIELDS)
+            )
             if nsfw:
                 params["nsfw"] = "true"
-            params["fields"] = _with_list_status(node_fields)
             return await client().get_authed(
                 "/users/@me/animelist", await token(), params=params
             )
@@ -389,21 +375,11 @@ def register_tools(mcp: FastMCP):
                 params["status"] = status
             if sort:
                 params["sort"] = sort
-            node_fields = None
-            if fields:
-                node_fields = build_fields(
-                    fields,
-                    [
-                        MangaFields.ID,
-                        MangaFields.TITLE,
-                        MangaFields.ALTERNATIVE_TITLES,
-                        MangaFields.MAIN_PICTURE,
-                        MangaFields.NSFW,
-                    ],
-                )
+            params["fields"] = _with_list_status(
+                build_fields(fields, _DEFAULT_MANGA_FIELDS)
+            )
             if nsfw:
                 params["nsfw"] = "true"
-            params["fields"] = _with_list_status(node_fields)
             return await client().get_authed(
                 "/users/@me/mangalist", await token(), params=params
             )
@@ -498,6 +474,7 @@ def register_tools(mcp: FastMCP):
                 params={
                     "limit": clamp_limit(limit, 100),
                     "offset": max(0, offset),
+                    "fields": build_fields(None, _DEFAULT_ANIME_FIELDS),
                 },
             )
         except _TOOL_ERRORS as e:

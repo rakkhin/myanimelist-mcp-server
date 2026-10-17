@@ -26,6 +26,17 @@ ALL_MANGA_FIELDS = ",".join(
     for f in MangaFields
 )
 
+DEFAULT_ANIME_FIELDS = (
+    f"{AnimeFields.ID},{AnimeFields.TITLE},{AnimeFields.ALTERNATIVE_TITLES},"
+    f"{AnimeFields.MAIN_PICTURE},{AnimeFields.NSFW},{AnimeFields.MEAN}"
+)
+DEFAULT_MANGA_FIELDS = (
+    f"{MangaFields.ID},{MangaFields.TITLE},{MangaFields.ALTERNATIVE_TITLES},"
+    f"{MangaFields.MAIN_PICTURE},{MangaFields.NSFW},{MangaFields.MEAN}"
+)
+DEFAULT_ANIME_LIST_FIELDS = f"{DEFAULT_ANIME_FIELDS},list_status"
+DEFAULT_MANGA_LIST_FIELDS = f"{DEFAULT_MANGA_FIELDS},list_status"
+
 PUBLIC_TOOLS = [
     ("get_anime", {"q": "naruto"}),
     ("get_anime_details", {"anime_id": 1}),
@@ -50,14 +61,25 @@ AUTHED_TOOLS = [
 
 class TestPublicTools:
     @pytest.mark.parametrize(
-        ("name", "endpoint"),
-        [("get_anime", "/anime"), ("get_manga", "/manga")],
+        ("name", "endpoint", "default_fields"),
+        [
+            ("get_anime", "/anime", DEFAULT_ANIME_FIELDS),
+            ("get_manga", "/manga", DEFAULT_MANGA_FIELDS),
+        ],
     )
-    def test_search_clamps_limit_and_offset(self, mal, name, endpoint):
+    def test_search_clamps_limit_and_offset(
+        self, mal, name, endpoint, default_fields
+    ):
         mal.call(name, q="one piece", limit=500, offset=-3)
 
         mal.client.get_public.assert_awaited_once_with(
-            endpoint, params={"q": "one piece", "limit": 100, "offset": 0}
+            endpoint,
+            params={
+                "q": "one piece",
+                "limit": 100,
+                "offset": 0,
+                "fields": default_fields,
+            },
         )
 
     @pytest.mark.parametrize(
@@ -77,14 +99,24 @@ class TestPublicTools:
         )
 
     @pytest.mark.parametrize(
-        ("name", "ranking_type", "endpoint"),
+        ("name", "ranking_type", "endpoint", "default_fields"),
         [
-            ("get_anime_ranking", AnimeRanking.AIRING, "/anime/ranking"),
-            ("get_manga_ranking", MangaRanking.NOVEL, "/manga/ranking"),
+            (
+                "get_anime_ranking",
+                AnimeRanking.AIRING,
+                "/anime/ranking",
+                DEFAULT_ANIME_FIELDS,
+            ),
+            (
+                "get_manga_ranking",
+                MangaRanking.NOVEL,
+                "/manga/ranking",
+                DEFAULT_MANGA_FIELDS,
+            ),
         ],
     )
     def test_ranking_passes_type_as_query_parameter(
-        self, mal, name, ranking_type, endpoint
+        self, mal, name, ranking_type, endpoint, default_fields
     ):
         mal.call(name, ranking_type=ranking_type, limit=600, offset=-1)
 
@@ -94,6 +126,7 @@ class TestPublicTools:
                 "ranking_type": ranking_type,
                 "limit": 500,
                 "offset": 0,
+                "fields": default_fields,
             },
         )
 
@@ -107,28 +140,35 @@ class TestPublicTools:
 
         mal.client.get_public.assert_awaited_once_with(
             "/anime/season/2025/winter",
-            params={"limit": 10, "offset": 0, "sort": "anime_score"},
+            params={
+                "limit": 10,
+                "offset": 0,
+                "sort": "anime_score",
+                "fields": DEFAULT_ANIME_FIELDS,
+            },
         )
 
     @pytest.mark.parametrize(
-        ("name", "status", "sort", "endpoint"),
+        ("name", "status", "sort", "endpoint", "list_fields"),
         [
             (
                 "get_anime_list",
                 AnimeStatus.WATCHING,
                 AnimeStatusSort.LIST_SCORE,
                 "/users/someone/animelist",
+                DEFAULT_ANIME_LIST_FIELDS,
             ),
             (
                 "get_manga_list",
                 MangaStatus.READING,
                 MangaStatusSort.LIST_SCORE,
                 "/users/someone/mangalist",
+                DEFAULT_MANGA_LIST_FIELDS,
             ),
         ],
     )
     def test_user_list_passes_status_sort_and_nsfw(
-        self, mal, name, status, sort, endpoint
+        self, mal, name, status, sort, endpoint, list_fields
     ):
         mal.call(
             name,
@@ -147,7 +187,7 @@ class TestPublicTools:
                 "status": status,
                 "sort": sort,
                 "nsfw": "true",
-                "fields": "list_status",
+                "fields": list_fields,
             },
         )
 
@@ -208,13 +248,21 @@ class TestPublicTools:
 
 class TestAuthenticatedTools:
     @pytest.mark.parametrize(
-        ("name", "endpoint"),
+        ("name", "endpoint", "list_fields"),
         [
-            ("get_my_anime_list", "/users/@me/animelist"),
-            ("get_my_manga_list", "/users/@me/mangalist"),
+            (
+                "get_my_anime_list",
+                "/users/@me/animelist",
+                DEFAULT_ANIME_LIST_FIELDS,
+            ),
+            (
+                "get_my_manga_list",
+                "/users/@me/mangalist",
+                DEFAULT_MANGA_LIST_FIELDS,
+            ),
         ],
     )
-    def test_own_list_passes_nsfw(self, mal, name, endpoint):
+    def test_own_list_passes_nsfw(self, mal, name, endpoint, list_fields):
         mal.call(name, nsfw=True)
 
         mal.client.get_authed.assert_awaited_once_with(
@@ -224,27 +272,32 @@ class TestAuthenticatedTools:
                 "limit": 10,
                 "offset": 0,
                 "nsfw": "true",
-                "fields": "list_status",
+                "fields": list_fields,
             },
         )
 
     @pytest.mark.parametrize(
-        ("name", "field"),
+        ("name", "field", "list_fields"),
         [
-            ("get_my_anime_list", AnimeFields.MEAN),
-            ("get_my_manga_list", MangaFields.NUM_CHAPTERS),
+            (
+                "get_my_anime_list",
+                AnimeFields.NUM_EPISODES,
+                DEFAULT_ANIME_LIST_FIELDS,
+            ),
+            (
+                "get_my_manga_list",
+                MangaFields.NUM_CHAPTERS,
+                DEFAULT_MANGA_LIST_FIELDS,
+            ),
         ],
     )
     def test_own_list_appends_list_status_to_requested_fields(
-        self, mal, name, field
+        self, mal, name, field, list_fields
     ):
         mal.call(name, fields=[field])
 
         fields = mal.client.get_authed.call_args.kwargs["params"]["fields"]
-        assert (
-            fields
-            == f"{field},id,title,alternative_titles,main_picture,nsfw,list_status"
-        )
+        assert fields == f"{field},{list_fields}"
 
     def test_suggested_anime_clamps_limit_and_offset(self, mal):
         mal.call("get_suggested_anime", limit=500, offset=-1)
@@ -252,7 +305,11 @@ class TestAuthenticatedTools:
         mal.client.get_authed.assert_awaited_once_with(
             "/anime/suggestions",
             "test-token",
-            params={"limit": 100, "offset": 0},
+            params={
+                "limit": 100,
+                "offset": 0,
+                "fields": DEFAULT_ANIME_FIELDS,
+            },
         )
 
     def test_user_profile_requests_anime_statistics_by_default(self, mal):
@@ -397,3 +454,43 @@ class TestMangaFieldsOverMcp:
             mal.call_over_mcp(name, {"fields": ["num_episodes"]})
 
         getattr(mal.client, client_method).assert_not_awaited()
+
+
+class TestDefaultFields:
+    @pytest.mark.parametrize(
+        ("name", "kwargs", "client_method", "expected"),
+        [
+            ("get_anime", {"q": "x"}, "get_public", DEFAULT_ANIME_FIELDS),
+            ("get_manga", {"q": "x"}, "get_public", DEFAULT_MANGA_FIELDS),
+            ("get_anime_ranking", {}, "get_public", DEFAULT_ANIME_FIELDS),
+            ("get_manga_ranking", {}, "get_public", DEFAULT_MANGA_FIELDS),
+            (
+                "get_seasonal_anime",
+                {"season": Season.SPRING, "year": 2024},
+                "get_public",
+                DEFAULT_ANIME_FIELDS,
+            ),
+            (
+                "get_anime_list",
+                {"username": "someone"},
+                "get_public",
+                DEFAULT_ANIME_LIST_FIELDS,
+            ),
+            (
+                "get_manga_list",
+                {"username": "someone"},
+                "get_public",
+                DEFAULT_MANGA_LIST_FIELDS,
+            ),
+            ("get_my_anime_list", {}, "get_authed", DEFAULT_ANIME_LIST_FIELDS),
+            ("get_my_manga_list", {}, "get_authed", DEFAULT_MANGA_LIST_FIELDS),
+            ("get_suggested_anime", {}, "get_authed", DEFAULT_ANIME_FIELDS),
+        ],
+    )
+    def test_tools_request_default_fields_without_fields_argument(
+        self, mal, name, kwargs, client_method, expected
+    ):
+        mal.call(name, **kwargs)
+
+        params = getattr(mal.client, client_method).call_args.kwargs["params"]
+        assert params["fields"] == expected
