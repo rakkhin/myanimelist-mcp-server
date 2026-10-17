@@ -49,12 +49,72 @@ jobs:
           default-branch: master
 
       # Checks the exact locked versions, dev group included, by their hashes.
+      # Records the result; the last step fails the job, after the report is
+      # published.
       - name: Scan dependencies for known vulnerabilities
+        id: audit
         if: ${{ !cancelled() }}
-        shell: bash # adds pipefail, so a finding still fails the step
+        shell: bash
         run: |
+          requirements="$RUNNER_TEMP/requirements.txt"
+          findings="$RUNNER_TEMP/pip-audit.md"
           uv export --frozen --format requirements-txt --no-emit-project \
-            --output-file "$RUNNER_TEMP/requirements.txt"
-          uvx pip-audit==2.10.1 --requirement "$RUNNER_TEMP/requirements.txt" \
+            --output-file "$requirements"
+          status=0
+          uvx pip-audit==2.10.1 --requirement "$requirements" \
             --disable-pip --require-hashes --strict --progress-spinner off \
-            --format markdown | tee -a "$GITHUB_STEP_SUMMARY"
+            --format markdown --output "$findings" || status=$?
+          packages=$(grep -c '^[A-Za-z0-9]' "$requirements")
+
+          # pip-audit writes the findings file only when it finds something.
+          report="$RUNNER_TEMP/report.md"
+          {
+            echo "<!-- pip-audit-report -->"
+            echo "## Dependency scan"
+            echo
+            if [ "$status" -eq 0 ]; then
+              echo "No known vulnerabilities in the $packages locked packages."
+            elif [ -s "$findings" ]; then
+              echo "Known vulnerabilities in the locked packages:"
+              cat "$findings"
+            else
+              echo "The scan failed before producing a report; see the job log."
+            fi
+          } > "$report"
+          cat "$report" >> "$GITHUB_STEP_SUMMARY"
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          {
+            echo "report<<PIP_AUDIT_REPORT_EOF"
+            cat "$report"
+            echo "PIP_AUDIT_REPORT_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Publish dependency scan report
+        if: ${{ !cancelled() && steps.audit.outcome == 'success' }}
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          REPORT: ${{ steps.audit.outputs.report }}
+        with:
+          script: |
+            // Keep one report comment per PR, found by its marker.
+            const body = process.env.REPORT;
+            const { owner, repo } = context.repo;
+            const issue_number = context.issue.number;
+            const comments = await github.paginate(
+              github.rest.issues.listComments,
+              { owner, repo, issue_number },
+            );
+            const existing = comments.find(
+              (c) => c.user.type === "Bot" && c.body.includes("<!-- pip-audit-report -->"),
+            );
+            if (existing) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number, body });
+            }
+
+      - name: Fail on known vulnerabilities
+        if: ${{ !cancelled() && steps.audit.outputs.status != '0' }}
+        run: |
+          echo "::error::pip-audit reported known vulnerabilities, or the scan failed. See the dependency scan report."
+          exit 1
