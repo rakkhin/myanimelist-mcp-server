@@ -1,4 +1,5 @@
 import asyncio
+import io
 import socketserver
 import time
 import urllib.parse
@@ -991,3 +992,70 @@ def test_get_mal_access_token_propagates_unexpected_refresh_error(
 
     with pytest.raises(TypeError, match="bug"):
         asyncio.run(auth.get_mal_access_token())
+
+
+def test_token_store_defaults_to_configured_location(tmp_path):
+    assert auth._token_store().path.is_relative_to(tmp_path)
+
+
+def test_pkce_method_rejects_unknown_method(monkeypatch):
+    monkeypatch.setenv("MAL_PKCE_METHOD", "md5")
+
+    with pytest.raises(ValueError, match="MAL_PKCE_METHOD"):
+        auth._generate_pkce()
+
+
+def test_generate_pkce_s256_matches_rfc7636_example(monkeypatch):
+    # RFC 7636, Appendix B.
+    verifier = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"
+    monkeypatch.setenv("MAL_PKCE_METHOD", "S256")
+    monkeypatch.setattr(auth.secrets, "token_urlsafe", lambda _: verifier)
+
+    assert auth._generate_pkce() == (
+        verifier,
+        "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM",
+        "S256",
+    )
+
+
+def test_callback_handler_writes_html_response_without_logging(
+    monkeypatch, capsys
+):
+    monkeypatch.setattr(auth, "CALLBACK_CODE", None)
+    monkeypatch.setattr(auth, "CALLBACK_STATE", None)
+    handler = object.__new__(auth._CallbackHandler)
+    handler.path = "/callback?code=secret-code&state=xyz"
+    handler.request_version = "HTTP/1.1"
+    handler.requestline = f"GET {handler.path} HTTP/1.1"
+    handler.wfile = io.BytesIO()
+
+    handler.do_GET()
+
+    head, body = handler.wfile.getvalue().split(b"\r\n\r\n", 1)
+    status_line, *headers = head.decode().split("\r\n")
+    assert status_line.split()[1] == "200"
+    assert "Content-Type: text/html; charset=utf-8" in headers
+    assert f"Content-Length: {len(body)}" in headers
+    assert b"Authorization received" in body
+    assert "secret-code" not in capsys.readouterr().err
+
+
+def test_get_auth_status_skips_refresh_when_refreshed_while_waiting(
+    monkeypatch, tmp_path
+):
+    now = time.time()
+    expired = StoredTokens(access_token="old", refresh_token="r", expires_at=0)
+    refreshed = StoredTokens(
+        access_token="new", refresh_token="r", expires_at=now + 3600
+    )
+    store = Mock(path=tmp_path / "mal_tokens.json")
+    store.load.side_effect = [expired, refreshed]
+    monkeypatch.setattr(auth, "_token_store", lambda: store)
+    refresh = AsyncMock()
+    monkeypatch.setattr(auth, "_refresh_tokens", refresh)
+
+    result = asyncio.run(auth.get_auth_status())
+
+    assert result["authenticated"] is True
+    assert result["expires_at"] == refreshed.expires_at
+    refresh.assert_not_awaited()

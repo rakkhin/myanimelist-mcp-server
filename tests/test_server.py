@@ -1,8 +1,11 @@
 import asyncio
 import importlib
+import runpy
+from pathlib import Path
+from unittest.mock import Mock
 
 import pytest
-from fastmcp import Client
+from fastmcp import Client, FastMCP
 
 from utils.mal_client import MALAPIError, MALClient
 
@@ -47,3 +50,15 @@ def test_expected_mal_error_is_returned_as_payload(server, monkeypatch):
     assert result.structured_content["error"] == (
         "MAL API returned an error: invalid q"
     )
+
+
+def test_running_main_starts_stdio_server(monkeypatch):
+    monkeypatch.setenv("MAL_CLIENT_ID", "test-id")
+    run = Mock()
+    monkeypatch.setattr(FastMCP, "run", run)
+
+    runpy.run_path(
+        str(Path(__file__).parents[1] / "main.py"), run_name="__main__"
+    )
+
+    run.assert_called_once_with(transport="stdio")
