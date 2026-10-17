@@ -233,7 +233,13 @@ def _serve_text(monkeypatch, text: str) -> None:
 
 def test_watch_queue_is_rebuilt_from_recorded_inputs(mal, monkeypatch):
     calendar = load("get_watch_queue_calendar.ics")
-    mal.client.get_authed.return_value = load("get_watch_queue_animelist.json")
+    responses = {
+        "/users/@me": load("get_user_profile.json"),
+        "/users/@me/animelist": load("get_watch_queue_animelist.json"),
+    }
+    mal.client.get_authed.side_effect = lambda endpoint, *a, **kw: responses[
+        endpoint
+    ]
     _serve_text(monkeypatch, calendar)
     _freeze_at_calendar_stamp(monkeypatch, calendar)
 

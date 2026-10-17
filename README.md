@@ -111,8 +111,10 @@ Search, ranking, seasonal, list and suggestion results always include each title
 
 ### Episode schedule / watch queue
 
-- `get_upcoming_anime_episodes`: fetch upcoming episodes for a MAL username (defaults to `botafi`) from Anime Calendar iCal and return a digest.
-- `get_watch_queue`: **auth required**; combines the authenticated user's `watching` anime list with the Anime Calendar iCal feed of `username` (defaults to `botafi`) to return per-title watched episodes versus latest released episodes, plus aggregate counts. Latest released is `num_episodes` for finished shows and 0 for shows not yet aired; otherwise it comes from calendar events (highest past episode, or next upcoming minus one). It is unknown when none of these apply.
+Anime Calendar builds its feed from the user's MyAnimeList lists, so the "currently watching" and "plan to watch" lists must be public. Otherwise both tools return an Anime Calendar 403 error that says so.
+
+- `get_upcoming_anime_episodes`: fetch upcoming episodes for a MAL username (defaults to the logged-in user; a username works without login) from Anime Calendar iCal and return a digest.
+- `get_watch_queue`: **auth required**; combines the authenticated user's `watching` anime list with the Anime Calendar iCal feed of `username` (defaults to the logged-in user) to return per-title watched episodes versus latest released episodes, plus aggregate counts. Latest released is `num_episodes` for finished shows and 0 for shows not yet aired; otherwise it comes from calendar events (highest past episode, or next upcoming minus one). It is unknown when none of these apply.
 
 ### News
 

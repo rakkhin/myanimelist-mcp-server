@@ -1233,7 +1233,7 @@ class TestGetWatchQueue:
             register_tools(mcp)
 
             tool = asyncio.run(mcp.get_tool("get_watch_queue"))
-            result = asyncio.run(tool.fn())
+            result = asyncio.run(tool.fn("testuser"))
 
             assert "error" in result
             assert "503" in result["error"]
