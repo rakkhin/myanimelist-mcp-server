@@ -10,7 +10,9 @@ from typing import Any
 
 import httpx
 
-from utils.schemas import AnimeFields
+from utils.schemas import AnimeFields, MangaFields
+
+Fields = AnimeFields | MangaFields
 
 MAL_API_URL = "https://api.myanimelist.net/v2"
 
@@ -52,7 +54,7 @@ def clamp_limit(limit: int, maximum: int = 100) -> int:
 
 
 def build_fields(
-    fields: Iterable[AnimeFields] | None, default: Iterable[AnimeFields]
+    fields: Iterable[Fields] | None, default: Iterable[Fields]
 ) -> str:
     deduped: list[str] = []
     for field in [*(fields or []), *default]:

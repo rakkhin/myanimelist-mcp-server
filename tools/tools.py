@@ -257,7 +257,7 @@ def register_tools(mcp: FastMCP):
     async def get_manga_details(manga_id: int) -> dict:
         """Fetch manga details by MAL ID."""
         try:
-            fields_param = ",".join([e.value for e in AnimeFields])
+            fields_param = ",".join([e.value for e in MangaFields])
             return await client().get_public(
                 f"/manga/{manga_id}", params={"fields": fields_param}
             )
@@ -269,7 +269,7 @@ def register_tools(mcp: FastMCP):
         ranking_type: MangaRanking = MangaRanking.ALL,
         limit: int = 100,
         offset: int = 0,
-        fields: list[AnimeFields] | None = None,
+        fields: list[MangaFields] | None = None,
     ) -> dict:
         """Fetch manga rankings from MyAnimeList."""
         try:
@@ -281,11 +281,11 @@ def register_tools(mcp: FastMCP):
                 params["fields"] = build_fields(
                     fields,
                     [
-                        AnimeFields.ID,
-                        AnimeFields.TITLE,
-                        AnimeFields.ALTERNATIVE_TITLES,
-                        AnimeFields.MAIN_PICTURE,
-                        AnimeFields.NSFW,
+                        MangaFields.ID,
+                        MangaFields.TITLE,
+                        MangaFields.ALTERNATIVE_TITLES,
+                        MangaFields.MAIN_PICTURE,
+                        MangaFields.NSFW,
                     ],
                 )
             return await client().get_public(
@@ -365,7 +365,7 @@ def register_tools(mcp: FastMCP):
         sort: MangaStatusSort | None = None,
         limit: int = 10,
         offset: int = 0,
-        fields: list[AnimeFields] | None = None,
+        fields: list[MangaFields] | None = None,
         nsfw: bool = False,
     ) -> dict:
         """Fetch the authenticated user's MyAnimeList manga list."""
@@ -382,11 +382,11 @@ def register_tools(mcp: FastMCP):
                 params["fields"] = build_fields(
                     fields,
                     [
-                        AnimeFields.ID,
-                        AnimeFields.TITLE,
-                        AnimeFields.ALTERNATIVE_TITLES,
-                        AnimeFields.MAIN_PICTURE,
-                        AnimeFields.NSFW,
+                        MangaFields.ID,
+                        MangaFields.TITLE,
+                        MangaFields.ALTERNATIVE_TITLES,
+                        MangaFields.MAIN_PICTURE,
+                        MangaFields.NSFW,
                     ],
                 )
             if nsfw:

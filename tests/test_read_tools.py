@@ -2,6 +2,7 @@ from unittest.mock import AsyncMock, Mock
 
 import httpx
 import pytest
+from fastmcp.exceptions import ToolError
 
 from tools import tools
 from utils.auth import MALAuthError
@@ -10,13 +11,15 @@ from utils.schemas import (
     AnimeFields,
     AnimeStatus,
     AnimeStatusSort,
+    MangaFields,
     MangaStatus,
     MangaStatusSort,
     Season,
     SeasonSort,
 )
 
-ALL_FIELDS = ",".join(field.value for field in AnimeFields)
+ALL_ANIME_FIELDS = ",".join(field.value for field in AnimeFields)
+ALL_MANGA_FIELDS = ",".join(field.value for field in MangaFields)
 
 PUBLIC_TOOLS = [
     ("get_anime", {"q": "naruto"}),
@@ -53,17 +56,19 @@ class TestPublicTools:
         )
 
     @pytest.mark.parametrize(
-        ("name", "id_arg", "endpoint"),
+        ("name", "id_arg", "endpoint", "fields"),
         [
-            ("get_anime_details", "anime_id", "/anime/5"),
-            ("get_manga_details", "manga_id", "/manga/5"),
+            ("get_anime_details", "anime_id", "/anime/5", ALL_ANIME_FIELDS),
+            ("get_manga_details", "manga_id", "/manga/5", ALL_MANGA_FIELDS),
         ],
     )
-    def test_details_request_all_fields(self, mal, name, id_arg, endpoint):
+    def test_details_request_all_fields(
+        self, mal, name, id_arg, endpoint, fields
+    ):
         mal.call(name, **{id_arg: 5})
 
         mal.client.get_public.assert_awaited_once_with(
-            endpoint, params={"fields": ALL_FIELDS}
+            endpoint, params={"fields": fields}
         )
 
     def test_seasonal_anime_passes_sort(self, mal):
@@ -309,3 +314,27 @@ class TestUpcomingAnimeEpisodes:
 
         assert result["status_code"] == 404
         assert "error" in result
+
+
+MANGA_FIELD_TOOLS = [
+    ("get_manga_ranking", "get_public"),
+    ("get_my_manga_list", "get_authed"),
+]
+
+
+class TestMangaFieldsOverMcp:
+    @pytest.mark.parametrize(("name", "client_method"), MANGA_FIELD_TOOLS)
+    def test_manga_tools_accept_manga_fields(self, mal, name, client_method):
+        mal.call_over_mcp(name, {"fields": ["num_chapters", "authors"]})
+
+        params = getattr(mal.client, client_method).call_args.kwargs["params"]
+        assert params["fields"].split(",")[:2] == ["num_chapters", "authors"]
+
+    @pytest.mark.parametrize(("name", "client_method"), MANGA_FIELD_TOOLS)
+    def test_manga_tools_reject_anime_only_fields(
+        self, mal, name, client_method
+    ):
+        with pytest.raises(ToolError):
+            mal.call_over_mcp(name, {"fields": ["num_episodes"]})
+
+        getattr(mal.client, client_method).assert_not_awaited()

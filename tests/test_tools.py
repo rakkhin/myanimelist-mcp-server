@@ -14,6 +14,7 @@ from utils.schemas import (
     AnimeRanking,
     AnimeStatus,
     AnimeStatusSort,
+    MangaFields,
     MangaRanking,
     MangaStatus,
     MangaStatusSort,
@@ -252,7 +253,7 @@ class TestToolRegistration:
                 MangaRanking.ALL,
                 100,
                 0,
-                [AnimeFields.ID, AnimeFields.TITLE, AnimeFields.RANK],
+                [MangaFields.ID, MangaFields.TITLE, MangaFields.RANK],
             )
         )
 
@@ -653,7 +654,7 @@ class TestToolRegistration:
                     None,
                     10,
                     0,
-                    [AnimeFields.ID, AnimeFields.TITLE, AnimeFields.MEAN],
+                    [MangaFields.ID, MangaFields.TITLE, MangaFields.MEAN],
                 )
             )
 
