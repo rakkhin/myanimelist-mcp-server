@@ -1,14 +1,19 @@
+import asyncio
 import os
 import sys
+from dataclasses import dataclass
 from pathlib import Path
+from unittest.mock import AsyncMock
 
 import httpx
 import pytest
+from fastmcp import Client, FastMCP
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from tools import tools
 from utils import auth
 
 
@@ -39,3 +44,39 @@ def isolate_from_local_environment(monkeypatch, tmp_path):
         )
 
     monkeypatch.setattr(httpx.AsyncClient, "send", no_network)
+
+
+@dataclass
+class ToolHarness:
+    mcp: FastMCP
+    client: AsyncMock
+
+    def call(self, name, **kwargs):
+        """Call the tool function directly; FastMCP argument validation is skipped."""
+        tool = asyncio.run(self.mcp.get_tool(name))
+        return asyncio.run(tool.fn(**kwargs))
+
+    def call_over_mcp(self, name, arguments):
+        async def run():
+            async with Client(self.mcp) as client:
+                return await client.call_tool(name, arguments)
+
+        return asyncio.run(run())
+
+
+@pytest.fixture
+def mal(monkeypatch):
+    """Register tools against a mock MAL client with a valid access token."""
+    mock_client = AsyncMock()
+    mock_client.get_public = AsyncMock(return_value={"data": []})
+    mock_client.get_authed = AsyncMock(return_value={"data": []})
+    mock_client.put_authed = AsyncMock(return_value={"status": "watching"})
+    mock_client.delete_authed = AsyncMock(return_value={"ok": True})
+    monkeypatch.setattr(tools, "MALClient", lambda: mock_client)
+    monkeypatch.setattr(
+        tools, "get_mal_access_token", AsyncMock(return_value="test-token")
+    )
+
+    mcp = FastMCP("test")
+    tools.register_tools(mcp)
+    return ToolHarness(mcp, mock_client)
