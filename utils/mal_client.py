@@ -58,8 +58,8 @@ def build_fields(
 ) -> str:
     deduped: list[str] = []
     for field in [*(fields or []), *default]:
-        if field.value not in deduped:
-            deduped.append(field.value)
+        if field not in deduped:
+            deduped.append(field)
     return ",".join(deduped)
 
 

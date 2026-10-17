@@ -18,8 +18,8 @@ from utils.schemas import (
     SeasonSort,
 )
 
-ALL_ANIME_FIELDS = ",".join(field.value for field in AnimeFields)
-ALL_MANGA_FIELDS = ",".join(field.value for field in MangaFields)
+ALL_ANIME_FIELDS = ",".join(AnimeFields)
+ALL_MANGA_FIELDS = ",".join(MangaFields)
 
 PUBLIC_TOOLS = [
     ("get_anime", {"q": "naruto"}),
@@ -118,8 +118,8 @@ class TestPublicTools:
             params={
                 "limit": 1000,
                 "offset": 0,
-                "status": status.value,
-                "sort": sort.value,
+                "status": status,
+                "sort": sort,
                 "nsfw": "true",
             },
         )

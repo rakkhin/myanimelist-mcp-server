@@ -139,7 +139,7 @@ def register_tools(mcp: FastMCP):
     async def get_anime_details(anime_id: int) -> dict:
         """Fetch anime details by MAL ID."""
         try:
-            fields_param = ",".join([e.value for e in AnimeFields])
+            fields_param = ",".join(AnimeFields)
             return await client().get_public(
                 f"/anime/{anime_id}", params={"fields": fields_param}
             )
@@ -171,7 +171,7 @@ def register_tools(mcp: FastMCP):
                     ],
                 )
             return await client().get_public(
-                f"/anime/ranking/{ranking_type.value}", params=params
+                f"/anime/ranking/{ranking_type}", params=params
             )
         except _TOOL_ERRORS as e:
             return api_error_payload(e)
@@ -192,7 +192,7 @@ def register_tools(mcp: FastMCP):
                 "offset": max(0, offset),
             }
             if sort:
-                params["sort"] = sort.value
+                params["sort"] = sort
             if fields:
                 params["fields"] = build_fields(
                     fields,
@@ -205,7 +205,7 @@ def register_tools(mcp: FastMCP):
                     ],
                 )
             return await client().get_public(
-                f"/anime/season/{year}/{season.value}", params=params
+                f"/anime/season/{year}/{season}", params=params
             )
         except _TOOL_ERRORS as e:
             return api_error_payload(e)
@@ -226,9 +226,9 @@ def register_tools(mcp: FastMCP):
                 "offset": max(0, offset),
             }
             if status:
-                params["status"] = status.value
+                params["status"] = status
             if sort:
-                params["sort"] = sort.value
+                params["sort"] = sort
             if nsfw:
                 params["nsfw"] = "true"
             return await client().get_public(
@@ -257,7 +257,7 @@ def register_tools(mcp: FastMCP):
     async def get_manga_details(manga_id: int) -> dict:
         """Fetch manga details by MAL ID."""
         try:
-            fields_param = ",".join([e.value for e in MangaFields])
+            fields_param = ",".join(MangaFields)
             return await client().get_public(
                 f"/manga/{manga_id}", params={"fields": fields_param}
             )
@@ -289,7 +289,7 @@ def register_tools(mcp: FastMCP):
                     ],
                 )
             return await client().get_public(
-                f"/manga/ranking/{ranking_type.value}", params=params
+                f"/manga/ranking/{ranking_type}", params=params
             )
         except _TOOL_ERRORS as e:
             return api_error_payload(e)
@@ -310,9 +310,9 @@ def register_tools(mcp: FastMCP):
                 "offset": max(0, offset),
             }
             if status:
-                params["status"] = status.value
+                params["status"] = status
             if sort:
-                params["sort"] = sort.value
+                params["sort"] = sort
             if nsfw:
                 params["nsfw"] = "true"
             return await client().get_public(
@@ -337,9 +337,9 @@ def register_tools(mcp: FastMCP):
                 "offset": max(0, offset),
             }
             if status:
-                params["status"] = status.value
+                params["status"] = status
             if sort:
-                params["sort"] = sort.value
+                params["sort"] = sort
             if fields:
                 params["fields"] = build_fields(
                     fields,
@@ -375,9 +375,9 @@ def register_tools(mcp: FastMCP):
                 "offset": max(0, offset),
             }
             if status:
-                params["status"] = status.value
+                params["status"] = status
             if sort:
-                params["sort"] = sort.value
+                params["sort"] = sort
             if fields:
                 params["fields"] = build_fields(
                     fields,
