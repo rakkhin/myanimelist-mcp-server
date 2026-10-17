@@ -29,6 +29,7 @@ _SUMMARY_RE = re.compile(
     r"^(?:\[(?P<stream>[^\]]+)\]\s*)?(?P<title>.*?)(?:\s*\((?P<episode>\d+)\))?$"
 )
 _MAL_RE = re.compile(r"myanimelist\.net/anime/(?P<id>\d+)")
+_TEXT_ESCAPE_RE = re.compile(r"\\([\\;,nN])")
 
 
 def _parse_dt(value: str) -> datetime:
@@ -42,13 +43,15 @@ def _parse_dt(value: str) -> datetime:
     raise ValueError(f"Unsupported iCal DTSTART format: {value}")
 
 
+def _unescape_char(match: re.Match[str]) -> str:
+    char = match.group(1)
+    return "\n" if char in "nN" else char
+
+
 def _unescape(value: str) -> str:
-    return (
-        value.replace("\\n", "\n")
-        .replace("\\,", ",")
-        .replace("\\;", ";")
-        .strip()
-    )
+    # RFC 5545 TEXT escapes, decoded in one pass so an escaped backslash
+    # followed by "n" (\\n) stays a backslash and "n", not a newline.
+    return _TEXT_ESCAPE_RE.sub(_unescape_char, value).strip()
 
 
 def _events(raw_ical: str) -> list[dict[str, str]]:
@@ -84,9 +87,10 @@ def parse_anime_calendar_events(raw_ical: str) -> list[CalendarEpisodeEvent]:
     for event in _events(raw_ical):
         if "DTSTART" not in event or "SUMMARY" not in event:
             continue
-        match = _SUMMARY_RE.match(event["SUMMARY"])
-        if not match:
-            continue
+        # Titles are single-line; every other part of the pattern is optional,
+        # so it matches any summary once newlines are replaced.
+        match = _SUMMARY_RE.match(event["SUMMARY"].replace("\n", " "))
+        assert match is not None
         desc = event.get("DESCRIPTION", "")
         mal_match = _MAL_RE.search(desc)
         episode = match.group("episode")

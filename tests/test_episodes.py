@@ -498,3 +498,22 @@ def test_build_watch_queue_treats_naive_now_as_utc():
 
     assert naive == aware
     assert naive["entries"][0]["latest_released_count"] == 3
+
+
+@pytest.mark.parametrize(
+    ("summary", "title", "episode"),
+    [
+        (r"[sub] Show A\nPart 2 (3)", "Show A Part 2", 3),
+        (r"[sub] Show A\NPart 2 (3)", "Show A Part 2", 3),
+        (r"[sub] Show\, Part\; Two (2)", "Show, Part; Two", 2),
+        (r"[sub] C:\\new (1)", r"C:\new", 1),
+    ],
+)
+def test_parse_events_decodes_summary_escapes(summary, title, episode):
+    events = parse_anime_calendar_events(
+        _ical(f"DTSTART:20260525T133000Z\nSUMMARY:{summary}")
+    )
+
+    assert [(e.title, e.episode, e.stream_type) for e in events] == [
+        (title, episode, "sub")
+    ]
