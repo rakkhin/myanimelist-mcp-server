@@ -7,13 +7,20 @@ requires-python = ">=3.12"
 dependencies = [
     "httpx>=0.28.1",
     "fastmcp~=4.0",
-    "python-dotenv>=1.1.0",
+    "python-dotenv>=1.2.2",
 ]
 
 [dependency-groups]
 dev = [
     "pytest>=9.1.1",
     "pytest-cov>=7.1.0",
+]
+
+[tool.uv]
+# Minimum versions for transitive dependencies with known vulnerabilities
+# below them; constraints do not add a dependency.
+constraint-dependencies = [
+    "pygments>=2.20.0",
 ]
 
 [tool.coverage.report]
