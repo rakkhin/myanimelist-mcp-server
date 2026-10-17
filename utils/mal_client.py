@@ -4,10 +4,13 @@ import asyncio
 import os
 import re
 import time
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Any, Iterable
+from typing import Any
 
 import httpx
+
+from utils.schemas import AnimeFields
 
 MAL_API_URL = "https://api.myanimelist.net/v2"
 
@@ -19,11 +22,21 @@ class MALAPIError(Exception):
         super().__init__(message)
         self.payload = payload or {}
 
+
 _SECRET_PATTERNS = [
-    (re.compile(r"Bearer\s+[A-Za-z0-9._~+/=-]+", re.IGNORECASE), "Bearer <redacted>"),
+    (
+        re.compile(r"Bearer\s+[A-Za-z0-9._~+/=-]+", re.IGNORECASE),
+        "Bearer <redacted>",
+    ),
     (re.compile(r"token=([^\s&]+)", re.IGNORECASE), "token=<redacted>"),
-    (re.compile(r"refresh_token=([^\s&]+)", re.IGNORECASE), "refresh_token=<redacted>"),
-    (re.compile(r"access_token=([^\s&]+)", re.IGNORECASE), "access_token=<redacted>"),
+    (
+        re.compile(r"refresh_token=([^\s&]+)", re.IGNORECASE),
+        "refresh_token=<redacted>",
+    ),
+    (
+        re.compile(r"access_token=([^\s&]+)", re.IGNORECASE),
+        "access_token=<redacted>",
+    ),
 ]
 
 _FIELD_RE = re.compile(r"^[A-Za-z0-9_,.]+$")
@@ -40,11 +53,16 @@ def clamp_limit(limit: int, maximum: int = 100) -> int:
     return max(1, min(int(limit), maximum))
 
 
-def build_fields(fields: Iterable[str] | None, default: Iterable[str]) -> str:
-    selected = list(fields or default)
+def build_fields(
+    fields: Iterable[AnimeFields] | None, default: Iterable[AnimeFields]
+) -> str:
+    if fields is None:
+        selected = default
+    else:
+        selected = [*fields, *default]
     deduped: list[str] = []
     for field in selected:
-        field = str(field).strip()
+        field = str(field.value).strip()
         if not field:
             continue
         if not _FIELD_RE.match(field):
@@ -52,7 +70,7 @@ def build_fields(fields: Iterable[str] | None, default: Iterable[str]) -> str:
         if field not in deduped:
             deduped.append(field)
     if not deduped:
-        deduped = list(default)
+        deduped = [x.value for x in default]
     return ",".join(deduped)
 
 
@@ -63,10 +81,12 @@ class MALClientConfig:
     rate_limit_delay: float = 0.35
 
     @classmethod
-    def from_env(cls, require_client_id: bool = False) -> "MALClientConfig":
+    def from_env(cls, require_client_id: bool = False) -> MALClientConfig:
         client_id = os.getenv("MAL_CLIENT_ID")
         if require_client_id and not client_id:
-            raise ValueError("MAL_CLIENT_ID is required for MyAnimeList API calls")
+            raise ValueError(
+                "MAL_CLIENT_ID is required for MyAnimeList API calls"
+            )
         return cls(
             client_id=client_id,
             api_url=os.getenv("MAL_API_URL", MAL_API_URL),
@@ -76,7 +96,9 @@ class MALClientConfig:
 
 class MALClient:
     def __init__(self, config: MALClientConfig | None = None):
-        self.config = config or MALClientConfig.from_env(require_client_id=True)
+        self.config = config or MALClientConfig.from_env(
+            require_client_id=True
+        )
         self._last_request_at = 0.0
 
     async def _wait_for_slot(self) -> None:
@@ -101,7 +123,9 @@ class MALClient:
         elif self.config.client_id:
             headers["X-MAL-CLIENT-ID"] = self.config.client_id
         else:
-            raise ValueError("MAL_CLIENT_ID is required for unauthenticated API calls")
+            raise ValueError(
+                "MAL_CLIENT_ID is required for unauthenticated API calls"
+            )
 
         if data is not None:
             headers["Content-Type"] = "application/x-www-form-urlencoded"
@@ -121,18 +145,30 @@ class MALClient:
             if isinstance(body, dict) and "error" in body:
                 err_msg = body.get("error") or body.get("message") or ""
                 raise MALAPIError(
-                    f"MAL API returned an error: {err_msg}".strip() if err_msg else "MAL API returned an empty error",
+                    f"MAL API returned an error: {err_msg}".strip()
+                    if err_msg
+                    else "MAL API returned an empty error",
                     payload=body,
                 )
             return body
 
-    async def get_public(self, endpoint: str, *, params: dict[str, Any] | None = None) -> dict[str, Any]:
+    async def get_public(
+        self, endpoint: str, *, params: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
         return await self.request("GET", endpoint, params=params)
 
-    async def get_authed(self, endpoint: str, token: str, *, params: dict[str, Any] | None = None) -> dict[str, Any]:
+    async def get_authed(
+        self,
+        endpoint: str,
+        token: str,
+        *,
+        params: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         return await self.request("GET", endpoint, token=token, params=params)
 
-    async def put_authed(self, endpoint: str, token: str, *, data: dict[str, Any]) -> dict[str, Any]:
+    async def put_authed(
+        self, endpoint: str, token: str, *, data: dict[str, Any]
+    ) -> dict[str, Any]:
         return await self.request("PUT", endpoint, token=token, data=data)
 
     async def delete_authed(self, endpoint: str, token: str) -> dict[str, Any]:
@@ -144,6 +180,11 @@ def api_error_payload(error: Exception) -> dict[str, Any]:
         detail = safe_error(str(error))
         return {"error": detail or type(error).__name__, "status_code": 200}
     if isinstance(error, httpx.HTTPStatusError):
-        return {"error": safe_error(f"MAL API error: {error.response.status_code} {error.response.reason_phrase}"), "status_code": error.response.status_code}
+        return {
+            "error": safe_error(
+                f"MAL API error: {error.response.status_code} {error.response.reason_phrase}"
+            ),
+            "status_code": error.response.status_code,
+        }
     detail = safe_error(str(error))
     return {"error": detail or type(error).__name__}

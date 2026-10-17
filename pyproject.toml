@@ -1,7 +1,7 @@
 [project]
 name = "myanimelist-mcp-server"
 version = "0.1.0"
-description = "Add your description here"
+description = "MCP server for MyAnimeList.net using the official API"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [

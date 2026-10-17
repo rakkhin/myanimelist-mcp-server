@@ -21,7 +21,12 @@ class StoredTokens:
         return bool(self.access_token) and time.time() < self.expires_at - 60
 
     @classmethod
-    def from_token_response(cls, data: dict[str, Any], now: float | None = None, existing_refresh_token: str | None = None) -> "StoredTokens":
+    def from_token_response(
+        cls,
+        data: dict[str, Any],
+        now: float | None = None,
+        existing_refresh_token: str | None = None,
+    ) -> StoredTokens:
         now = time.time() if now is None else now
         refresh_token = data.get("refresh_token") or existing_refresh_token
         return cls(
@@ -61,7 +66,13 @@ class TokenStore:
                 expires_at=float(data["expires_at"]),
                 token_type=str(data.get("token_type", "Bearer")),
             )
-        except (FileNotFoundError, json.JSONDecodeError, KeyError, TypeError, ValueError):
+        except (
+            FileNotFoundError,
+            json.JSONDecodeError,
+            KeyError,
+            TypeError,
+            ValueError,
+        ):
             return None
 
     def save(self, tokens: StoredTokens) -> None:

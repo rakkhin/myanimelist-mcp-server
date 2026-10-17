@@ -1,4 +1,5 @@
 from mcp.server.fastmcp import FastMCP
+
 from tools.tools import register_tools
 
 mcp = FastMCP("myanimelist")

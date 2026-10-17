@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 
 @dataclass(frozen=True)
@@ -25,7 +25,9 @@ class WatchQueueEntry:
 
 
 _DT_FORMATS = ("%Y%m%dT%H%M%SZ", "%Y%m%dT%H%M%S")
-_SUMMARY_RE = re.compile(r"^(?:\[(?P<stream>[^\]]+)\]\s*)?(?P<title>.*?)(?:\s*\((?P<episode>\d+)\))?$")
+_SUMMARY_RE = re.compile(
+    r"^(?:\[(?P<stream>[^\]]+)\]\s*)?(?P<title>.*?)(?:\s*\((?P<episode>\d+)\))?$"
+)
 _MAL_RE = re.compile(r"myanimelist\.net/anime/(?P<id>\d+)")
 
 
@@ -34,14 +36,19 @@ def _parse_dt(value: str) -> datetime:
     for fmt in _DT_FORMATS:
         try:
             dt = datetime.strptime(value, fmt)
-            return dt.replace(tzinfo=timezone.utc)
+            return dt.replace(tzinfo=UTC)
         except ValueError:
             pass
     raise ValueError(f"Unsupported iCal DTSTART format: {value}")
 
 
 def _unescape(value: str) -> str:
-    return value.replace("\\n", "\n").replace("\\,", ",").replace("\\;", ";").strip()
+    return (
+        value.replace("\\n", "\n")
+        .replace("\\,", ",")
+        .replace("\\;", ";")
+        .strip()
+    )
 
 
 def _events(raw_ical: str) -> list[dict[str, str]]:
@@ -95,12 +102,22 @@ def parse_anime_calendar_events(raw_ical: str) -> list[CalendarEpisodeEvent]:
     return sorted(parsed, key=lambda item: item.starts_at)
 
 
-def upcoming_events_digest(raw_ical: str, *, now_iso: str | None = None, hours: int = 36) -> str:
-    now = datetime.now(timezone.utc) if now_iso is None else datetime.fromisoformat(now_iso)
+def upcoming_events_digest(
+    raw_ical: str, *, now_iso: str | None = None, hours: int = 36
+) -> str:
+    now = (
+        datetime.now(UTC)
+        if now_iso is None
+        else datetime.fromisoformat(now_iso)
+    )
     if now.tzinfo is None:
-        now = now.replace(tzinfo=timezone.utc)
+        now = now.replace(tzinfo=UTC)
     end = now + timedelta(hours=hours)
-    events = [event for event in parse_anime_calendar_events(raw_ical) if now <= event.starts_at <= end]
+    events = [
+        event
+        for event in parse_anime_calendar_events(raw_ical)
+        if now <= event.starts_at <= end
+    ]
     if not events:
         return f"No scheduled anime episodes in the next {hours} hours."
 
@@ -109,7 +126,9 @@ def upcoming_events_digest(raw_ical: str, *, now_iso: str | None = None, hours: 
         ep = f" ep {event.episode}" if event.episode is not None else ""
         stream = f" [{event.stream_type}]" if event.stream_type else ""
         mal = f" — MAL {event.mal_id}" if event.mal_id is not None else ""
-        lines.append(f"- {event.title}{ep}{stream} at {event.starts_at.isoformat().replace('+00:00', 'Z')}{mal}")
+        lines.append(
+            f"- {event.title}{ep}{stream} at {event.starts_at.isoformat().replace('+00:00', 'Z')}{mal}"
+        )
     return "\n".join(lines)
 
 
@@ -130,12 +149,18 @@ def _resolve_latest_episode(
 
     if mal_id and mal_id in calendar_by_mal_id:
         events = calendar_by_mal_id[mal_id]
-        past_events = [e for e in events if e.episode is not None and e.starts_at <= now]
+        past_events = [
+            e for e in events if e.episode is not None and e.starts_at <= now
+        ]
         if past_events:
             return max(e.episode for e in past_events)
 
         upcoming = sorted(
-            [e.episode for e in events if e.episode is not None and e.starts_at > now]
+            [
+                e.episode
+                for e in events
+                if e.episode is not None and e.starts_at > now
+            ]
         )
         if upcoming:
             min_ep = upcoming[0]
@@ -151,9 +176,9 @@ def build_watch_queue(
     now: datetime | None = None,
 ) -> dict:
     if now is None:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
     elif now.tzinfo is None:
-        now = now.replace(tzinfo=timezone.utc)
+        now = now.replace(tzinfo=UTC)
 
     calendar_by_mal_id: dict[int, list[CalendarEpisodeEvent]] = {}
     for event in calendar_events:
@@ -184,20 +209,24 @@ def build_watch_queue(
             unwatched = max(0, latest - watched)
             total_unwatched_calculable += unwatched
 
-        entries.append(WatchQueueEntry(
-            title=title,
-            mal_id=mal_id,
-            watched_count=watched,
-            latest_released_count=latest,
-            unwatched_count=unwatched,
-            status=status,
-        ))
+        entries.append(
+            WatchQueueEntry(
+                title=title,
+                mal_id=mal_id,
+                watched_count=watched,
+                latest_released_count=latest,
+                unwatched_count=unwatched,
+                status=status,
+            )
+        )
 
-    entries.sort(key=lambda e: (
-        0 if e.unwatched_count is not None else 1,
-        -(e.unwatched_count or 0),
-        e.title.lower(),
-    ))
+    entries.sort(
+        key=lambda e: (
+            0 if e.unwatched_count is not None else 1,
+            -(e.unwatched_count or 0),
+            e.title.lower(),
+        )
+    )
 
     return {
         "entries": [

@@ -1,16 +1,17 @@
-import pytest
 import asyncio
-import httpx
 from unittest.mock import AsyncMock, Mock, patch
+
+import httpx
+import pytest
 
 from utils.mal_client import (
     MALAPIError,
+    MALClient,
+    MALClientConfig,
+    api_error_payload,
     build_fields,
     clamp_limit,
     safe_error,
-    api_error_payload,
-    MALClientConfig,
-    MALClient,
 )
 
 
@@ -33,7 +34,9 @@ def test_clamp_limit_respects_minimum_and_maximum():
 
 
 def test_safe_error_does_not_include_response_body_or_secrets():
-    err = safe_error("failure with token=abc123 and Authorization: Bearer secret-token")
+    err = safe_error(
+        "failure with token=abc123 and Authorization: Bearer secret-token"
+    )
 
     assert "abc123" not in err
     assert "secret-token" not in err
@@ -49,13 +52,18 @@ def test_mal_client_config_requires_client_id_for_public_calls(monkeypatch):
 
 class TestApiErrorPayload:
     def test_mal_api_error_with_empty_payload(self):
-        err = MALAPIError("MAL API returned an empty error", payload={"error": ""})
+        err = MALAPIError(
+            "MAL API returned an empty error", payload={"error": ""}
+        )
         result = api_error_payload(err)
         assert result["error"] == "MAL API returned an empty error"
         assert result["status_code"] == 200
 
     def test_mal_api_error_with_message(self):
-        err = MALAPIError("MAL API returned an error: invalid season", payload={"error": "invalid season"})
+        err = MALAPIError(
+            "MAL API returned an error: invalid season",
+            payload={"error": "invalid season"},
+        )
         result = api_error_payload(err)
         assert result["error"] == "MAL API returned an error: invalid season"
         assert result["status_code"] == 200
@@ -119,9 +127,21 @@ class TestMALClientEmptyErrorDetection:
         mock_http.__aexit__ = AsyncMock(return_value=False)
         mock_http.request = AsyncMock(return_value=mock_response)
 
-        with patch("utils.mal_client.httpx.AsyncClient", return_value=mock_http):
-            with pytest.raises(MALAPIError, match="MAL API returned an empty error"):
-                asyncio.run(client.request("GET", "/anime/season/2026/summer", params={"limit": 10}))
+        with (
+            patch(
+                "utils.mal_client.httpx.AsyncClient", return_value=mock_http
+            ),
+            pytest.raises(
+                MALAPIError, match="MAL API returned an empty error"
+            ),
+        ):
+            asyncio.run(
+                client.request(
+                    "GET",
+                    "/anime/season/2026/summer",
+                    params={"limit": 10},
+                )
+            )
 
     def test_request_raises_on_error_with_message(self, monkeypatch):
         monkeypatch.setenv("MAL_CLIENT_ID", "test-id")
@@ -130,18 +150,34 @@ class TestMALClientEmptyErrorDetection:
 
         mock_response = Mock()
         mock_response.status_code = 200
-        mock_response.content = b'{"error":"invalid season","message":"details"}'
+        mock_response.content = (
+            b'{"error":"invalid season","message":"details"}'
+        )
         mock_response.raise_for_status = Mock()
-        mock_response.json = Mock(return_value={"error": "invalid season", "message": "details"})
+        mock_response.json = Mock(
+            return_value={"error": "invalid season", "message": "details"}
+        )
 
         mock_http = AsyncMock()
         mock_http.__aenter__ = AsyncMock(return_value=mock_http)
         mock_http.__aexit__ = AsyncMock(return_value=False)
         mock_http.request = AsyncMock(return_value=mock_response)
 
-        with patch("utils.mal_client.httpx.AsyncClient", return_value=mock_http):
-            with pytest.raises(MALAPIError, match="MAL API returned an error: invalid season"):
-                asyncio.run(client.request("GET", "/anime/season/2026/summer", params={"limit": 10}))
+        with (
+            patch(
+                "utils.mal_client.httpx.AsyncClient", return_value=mock_http
+            ),
+            pytest.raises(
+                MALAPIError, match="MAL API returned an error: invalid season"
+            ),
+        ):
+            asyncio.run(
+                client.request(
+                    "GET",
+                    "/anime/season/2026/summer",
+                    params={"limit": 10},
+                )
+            )
 
     def test_request_passes_through_valid_response(self, monkeypatch):
         monkeypatch.setenv("MAL_CLIENT_ID", "test-id")
@@ -152,13 +188,21 @@ class TestMALClientEmptyErrorDetection:
         mock_response.status_code = 200
         mock_response.content = b'{"data":[{"node":{"id":1,"title":"Test"}}]}'
         mock_response.raise_for_status = Mock()
-        mock_response.json = Mock(return_value={"data": [{"node": {"id": 1, "title": "Test"}}]})
+        mock_response.json = Mock(
+            return_value={"data": [{"node": {"id": 1, "title": "Test"}}]}
+        )
 
         mock_http = AsyncMock()
         mock_http.__aenter__ = AsyncMock(return_value=mock_http)
         mock_http.__aexit__ = AsyncMock(return_value=False)
         mock_http.request = AsyncMock(return_value=mock_response)
 
-        with patch("utils.mal_client.httpx.AsyncClient", return_value=mock_http):
-            result = asyncio.run(client.request("GET", "/anime/season/2024/summer", params={"limit": 10}))
+        with patch(
+            "utils.mal_client.httpx.AsyncClient", return_value=mock_http
+        ):
+            result = asyncio.run(
+                client.request(
+                    "GET", "/anime/season/2024/summer", params={"limit": 10}
+                )
+            )
             assert result["data"][0]["node"]["title"] == "Test"

@@ -1,6 +1,11 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
-from utils.episodes import CalendarEpisodeEvent, build_watch_queue, parse_anime_calendar_events, upcoming_events_digest
+from utils.episodes import (
+    CalendarEpisodeEvent,
+    build_watch_queue,
+    parse_anime_calendar_events,
+    upcoming_events_digest,
+)
 
 
 def test_parse_anime_calendar_events_extracts_episode_metadata():
@@ -26,7 +31,9 @@ END:VCALENDAR\r
 def test_upcoming_events_digest_filters_to_window():
     ical = """BEGIN:VCALENDAR\nBEGIN:VEVENT\nDTSTART:20260525T133000Z\nSUMMARY:[sub] Show A (1)\nDESCRIPTION:Link: https://myanimelist.net/anime/1\nEND:VEVENT\nBEGIN:VEVENT\nDTSTART:20260725T133000Z\nSUMMARY:[sub] Show B (9)\nDESCRIPTION:Link: https://myanimelist.net/anime/2\nEND:VEVENT\nEND:VCALENDAR\n"""
 
-    digest = upcoming_events_digest(ical, now_iso="2026-05-24T00:00:00+00:00", hours=72)
+    digest = upcoming_events_digest(
+        ical, now_iso="2026-05-24T00:00:00+00:00", hours=72
+    )
 
     assert "Show A ep 1" in digest
     assert "Show B" not in digest
@@ -36,18 +43,25 @@ def _cevent(mal_id: int, episode: int, starts_at: str) -> CalendarEpisodeEvent:
     return CalendarEpisodeEvent(
         title="",
         episode=episode,
-        starts_at=datetime.fromisoformat(starts_at).replace(tzinfo=timezone.utc),
+        starts_at=datetime.fromisoformat(starts_at).replace(tzinfo=UTC),
         mal_id=mal_id,
     )
 
 
 class TestBuildWatchQueue:
-    _NOW = datetime(2026, 7, 20, 0, 0, 0, tzinfo=timezone.utc)
+    _NOW = datetime(2026, 7, 20, 0, 0, 0, tzinfo=UTC)
 
     def test_finished_airing_uses_num_episodes(self):
         data = [
-            {"node": {"id": 1, "title": "Completed Show", "num_episodes": 12, "status": "finished_airing"},
-             "list_status": {"num_episodes_watched": 5}},
+            {
+                "node": {
+                    "id": 1,
+                    "title": "Completed Show",
+                    "num_episodes": 12,
+                    "status": "finished_airing",
+                },
+                "list_status": {"num_episodes_watched": 5},
+            },
         ]
         result = build_watch_queue(data, [], now=self._NOW)
         assert len(result["entries"]) == 1
@@ -59,8 +73,15 @@ class TestBuildWatchQueue:
 
     def test_not_yet_aired_returns_zero(self):
         data = [
-            {"node": {"id": 2, "title": "Upcoming Show", "num_episodes": 0, "status": "not_yet_aired"},
-             "list_status": {"num_episodes_watched": 0}},
+            {
+                "node": {
+                    "id": 2,
+                    "title": "Upcoming Show",
+                    "num_episodes": 0,
+                    "status": "not_yet_aired",
+                },
+                "list_status": {"num_episodes_watched": 0},
+            },
         ]
         result = build_watch_queue(data, [], now=self._NOW)
         assert result["entries"][0]["latest_released_count"] == 0
@@ -68,8 +89,15 @@ class TestBuildWatchQueue:
 
     def test_airing_with_calendar_past_events_uses_highest_past(self):
         data = [
-            {"node": {"id": 10, "title": "Airing", "num_episodes": 0, "status": "currently_airing"},
-             "list_status": {"num_episodes_watched": 3}},
+            {
+                "node": {
+                    "id": 10,
+                    "title": "Airing",
+                    "num_episodes": 0,
+                    "status": "currently_airing",
+                },
+                "list_status": {"num_episodes_watched": 3},
+            },
         ]
         events = [
             _cevent(10, 5, "2026-07-13T00:00:00+00:00"),
@@ -83,8 +111,15 @@ class TestBuildWatchQueue:
 
     def test_airing_with_only_upcoming_events_infers_latest(self):
         data = [
-            {"node": {"id": 11, "title": "Airing New", "num_episodes": 0, "status": "currently_airing"},
-             "list_status": {"num_episodes_watched": 3}},
+            {
+                "node": {
+                    "id": 11,
+                    "title": "Airing New",
+                    "num_episodes": 0,
+                    "status": "currently_airing",
+                },
+                "list_status": {"num_episodes_watched": 3},
+            },
         ]
         events = [
             _cevent(11, 5, "2026-07-27T00:00:00+00:00"),
@@ -96,8 +131,15 @@ class TestBuildWatchQueue:
 
     def test_upcoming_episode_one_means_nothing_released(self):
         data = [
-            {"node": {"id": 12, "title": "Premiere", "num_episodes": 0, "status": "currently_airing"},
-             "list_status": {"num_episodes_watched": 0}},
+            {
+                "node": {
+                    "id": 12,
+                    "title": "Premiere",
+                    "num_episodes": 0,
+                    "status": "currently_airing",
+                },
+                "list_status": {"num_episodes_watched": 0},
+            },
         ]
         events = [
             _cevent(12, 1, "2026-07-27T00:00:00+00:00"),
@@ -109,8 +151,15 @@ class TestBuildWatchQueue:
 
     def test_no_calendar_data_yields_unknown_latest(self):
         data = [
-            {"node": {"id": 20, "title": "Missing", "num_episodes": 0, "status": "currently_airing"},
-             "list_status": {"num_episodes_watched": 2}},
+            {
+                "node": {
+                    "id": 20,
+                    "title": "Missing",
+                    "num_episodes": 0,
+                    "status": "currently_airing",
+                },
+                "list_status": {"num_episodes_watched": 2},
+            },
         ]
         result = build_watch_queue(data, [], now=self._NOW)
         entry = result["entries"][0]
@@ -119,10 +168,24 @@ class TestBuildWatchQueue:
 
     def test_aggregate_counts(self):
         data = [
-            {"node": {"id": 1, "title": "A", "num_episodes": 12, "status": "finished_airing"},
-             "list_status": {"num_episodes_watched": 5}},
-            {"node": {"id": 2, "title": "B", "num_episodes": 0, "status": "currently_airing"},
-             "list_status": {"num_episodes_watched": 2}},
+            {
+                "node": {
+                    "id": 1,
+                    "title": "A",
+                    "num_episodes": 12,
+                    "status": "finished_airing",
+                },
+                "list_status": {"num_episodes_watched": 5},
+            },
+            {
+                "node": {
+                    "id": 2,
+                    "title": "B",
+                    "num_episodes": 0,
+                    "status": "currently_airing",
+                },
+                "list_status": {"num_episodes_watched": 2},
+            },
         ]
         events = [
             _cevent(2, 4, "2026-07-27T00:00:00+00:00"),
@@ -136,10 +199,24 @@ class TestBuildWatchQueue:
 
     def test_mixed_unknown_and_known_aggregate(self):
         data = [
-            {"node": {"id": 1, "title": "A", "num_episodes": 10, "status": "finished_airing"},
-             "list_status": {"num_episodes_watched": 10}},
-            {"node": {"id": 2, "title": "B", "num_episodes": 0, "status": "currently_airing"},
-             "list_status": {"num_episodes_watched": 1}},
+            {
+                "node": {
+                    "id": 1,
+                    "title": "A",
+                    "num_episodes": 10,
+                    "status": "finished_airing",
+                },
+                "list_status": {"num_episodes_watched": 10},
+            },
+            {
+                "node": {
+                    "id": 2,
+                    "title": "B",
+                    "num_episodes": 0,
+                    "status": "currently_airing",
+                },
+                "list_status": {"num_episodes_watched": 1},
+            },
         ]
         result = build_watch_queue(data, [], now=self._NOW)
         agg = result["aggregate"]
@@ -158,8 +235,15 @@ class TestBuildWatchQueue:
 
     def test_zero_episodes_finished_returns_none(self):
         data = [
-            {"node": {"id": 99, "title": "Zero Ep", "num_episodes": 0, "status": "finished_airing"},
-             "list_status": {"num_episodes_watched": 0}},
+            {
+                "node": {
+                    "id": 99,
+                    "title": "Zero Ep",
+                    "num_episodes": 0,
+                    "status": "finished_airing",
+                },
+                "list_status": {"num_episodes_watched": 0},
+            },
         ]
         result = build_watch_queue(data, [], now=self._NOW)
         assert result["entries"][0]["latest_released_count"] is None
@@ -167,8 +251,15 @@ class TestBuildWatchQueue:
 
     def test_watched_exceeds_latest_unwatched_floor_zero(self):
         data = [
-            {"node": {"id": 1, "title": "Overtracked", "num_episodes": 5, "status": "finished_airing"},
-             "list_status": {"num_episodes_watched": 12}},
+            {
+                "node": {
+                    "id": 1,
+                    "title": "Overtracked",
+                    "num_episodes": 5,
+                    "status": "finished_airing",
+                },
+                "list_status": {"num_episodes_watched": 12},
+            },
         ]
         result = build_watch_queue(data, [], now=self._NOW)
         assert result["entries"][0]["watched_count"] == 12
@@ -177,12 +268,33 @@ class TestBuildWatchQueue:
 
     def test_sorting_puts_most_unwatched_first(self):
         data = [
-            {"node": {"id": 1, "title": "B Show", "num_episodes": 24, "status": "finished_airing"},
-             "list_status": {"num_episodes_watched": 10}},
-            {"node": {"id": 2, "title": "A Show", "num_episodes": 12, "status": "finished_airing"},
-             "list_status": {"num_episodes_watched": 2}},
-            {"node": {"id": 3, "title": "C Show", "num_episodes": 0, "status": "currently_airing"},
-             "list_status": {"num_episodes_watched": 5}},
+            {
+                "node": {
+                    "id": 1,
+                    "title": "B Show",
+                    "num_episodes": 24,
+                    "status": "finished_airing",
+                },
+                "list_status": {"num_episodes_watched": 10},
+            },
+            {
+                "node": {
+                    "id": 2,
+                    "title": "A Show",
+                    "num_episodes": 12,
+                    "status": "finished_airing",
+                },
+                "list_status": {"num_episodes_watched": 2},
+            },
+            {
+                "node": {
+                    "id": 3,
+                    "title": "C Show",
+                    "num_episodes": 0,
+                    "status": "currently_airing",
+                },
+                "list_status": {"num_episodes_watched": 5},
+            },
         ]
         result = build_watch_queue(data, [], now=self._NOW)
         titles = [e["title"] for e in result["entries"]]
@@ -192,8 +304,15 @@ class TestBuildWatchQueue:
 
     def test_missing_list_status_fields_default_to_zero(self):
         data = [
-            {"node": {"id": 1, "title": "Bare", "num_episodes": 12, "status": "finished_airing"},
-             "list_status": {}},
+            {
+                "node": {
+                    "id": 1,
+                    "title": "Bare",
+                    "num_episodes": 12,
+                    "status": "finished_airing",
+                },
+                "list_status": {},
+            },
         ]
         result = build_watch_queue(data, [], now=self._NOW)
         entry = result["entries"][0]
@@ -212,18 +331,27 @@ class TestBuildWatchQueue:
 
     def test_calendar_event_without_episode_is_skipped(self):
         data = [
-            {"node": {"id": 10, "title": "Airing", "num_episodes": 0, "status": "currently_airing"},
-             "list_status": {"num_episodes_watched": 2}},
+            {
+                "node": {
+                    "id": 10,
+                    "title": "Airing",
+                    "num_episodes": 0,
+                    "status": "currently_airing",
+                },
+                "list_status": {"num_episodes_watched": 2},
+            },
         ]
         events = [
             CalendarEpisodeEvent(
-                title="", episode=None,
-                starts_at=datetime(2026, 7, 21, 0, 0, 0, tzinfo=timezone.utc),
+                title="",
+                episode=None,
+                starts_at=datetime(2026, 7, 21, 0, 0, 0, tzinfo=UTC),
                 mal_id=10,
             ),
             CalendarEpisodeEvent(
-                title="", episode=6,
-                starts_at=datetime(2026, 7, 19, 0, 0, 0, tzinfo=timezone.utc),
+                title="",
+                episode=6,
+                starts_at=datetime(2026, 7, 19, 0, 0, 0, tzinfo=UTC),
                 mal_id=10,
             ),
         ]
@@ -232,13 +360,21 @@ class TestBuildWatchQueue:
 
     def test_calendar_event_without_mal_id_not_matched(self):
         data = [
-            {"node": {"id": 10, "title": "Airing", "num_episodes": 0, "status": "currently_airing"},
-             "list_status": {"num_episodes_watched": 1}},
+            {
+                "node": {
+                    "id": 10,
+                    "title": "Airing",
+                    "num_episodes": 0,
+                    "status": "currently_airing",
+                },
+                "list_status": {"num_episodes_watched": 1},
+            },
         ]
         events = [
             CalendarEpisodeEvent(
-                title="", episode=5,
-                starts_at=datetime(2026, 7, 19, 0, 0, 0, tzinfo=timezone.utc),
+                title="",
+                episode=5,
+                starts_at=datetime(2026, 7, 19, 0, 0, 0, tzinfo=UTC),
                 mal_id=None,
             ),
         ]
@@ -247,12 +383,20 @@ class TestBuildWatchQueue:
 
     def test_past_calendar_event_at_exact_now_is_counted(self):
         data = [
-            {"node": {"id": 10, "title": "Airing", "num_episodes": 0, "status": "currently_airing"},
-             "list_status": {"num_episodes_watched": 1}},
+            {
+                "node": {
+                    "id": 10,
+                    "title": "Airing",
+                    "num_episodes": 0,
+                    "status": "currently_airing",
+                },
+                "list_status": {"num_episodes_watched": 1},
+            },
         ]
         events = [
             CalendarEpisodeEvent(
-                title="", episode=4,
+                title="",
+                episode=4,
                 starts_at=self._NOW,
                 mal_id=10,
             ),

@@ -27,7 +27,9 @@ CLIENT_SECRET = os.getenv("MAL_CLIENT_SECRET")
 REDIRECT_URI = os.getenv("MAL_REDIRECT_URI", "http://localhost:8080/callback")
 CALLBACK_HOST = os.getenv("MAL_CALLBACK_HOST", "127.0.0.1")
 CALLBACK_PORT = int(os.getenv("MAL_CALLBACK_PORT", "8080"))
-CALLBACK_TIMEOUT_SECONDS = float(os.getenv("MAL_CALLBACK_TIMEOUT_SECONDS", "300"))
+CALLBACK_TIMEOUT_SECONDS = float(
+    os.getenv("MAL_CALLBACK_TIMEOUT_SECONDS", "300")
+)
 PKCE_METHOD = os.getenv("MAL_PKCE_METHOD", "plain").lower()
 
 # Public globals used by the callback server and by tests that monkeypatch it.
@@ -73,13 +75,19 @@ def _generate_pkce() -> tuple[str, str, str]:
     if method == "plain":
         return verifier, verifier, "plain"
 
-    challenge = base64.urlsafe_b64encode(
-        hashlib.sha256(verifier.encode("ascii")).digest()
-    ).rstrip(b"=").decode("ascii")
+    challenge = (
+        base64.urlsafe_b64encode(
+            hashlib.sha256(verifier.encode("ascii")).digest()
+        )
+        .rstrip(b"=")
+        .decode("ascii")
+    )
     return verifier, challenge, "S256"
 
 
-def _authorization_url(state: str, code_challenge: str, code_challenge_method: str) -> str:
+def _authorization_url(
+    state: str, code_challenge: str, code_challenge_method: str
+) -> str:
     params = {
         "response_type": "code",
         "client_id": _require_client_id(),
@@ -104,7 +112,7 @@ class _CallbackHandler(http.server.BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(encoded)
 
-    def do_GET(self) -> None:  # noqa: N802
+    def do_GET(self) -> None:
         global CALLBACK_CODE, CALLBACK_STATE
 
         parsed = urllib.parse.urlparse(self.path)
@@ -118,7 +126,9 @@ class _CallbackHandler(http.server.BaseHTTPRequestHandler):
         error = qs.get("error", [None])[0]
 
         if error:
-            self._send_html(400, f"<h1>Authorization error</h1><p>{html.escape(error)}</p>")
+            self._send_html(
+                400, f"<h1>Authorization error</h1><p>{html.escape(error)}</p>"
+            )
             return
 
         if code and state:
@@ -158,7 +168,9 @@ def capture_authorization_code(expected_state: str) -> str | None:
         return None
 
 
-async def _exchange_code_for_token(code: str, code_verifier: str) -> StoredTokens:
+async def _exchange_code_for_token(
+    code: str, code_verifier: str
+) -> StoredTokens:
     """Exchange an authorization code for tokens."""
     data = {
         "grant_type": "authorization_code",
@@ -182,12 +194,14 @@ async def _refresh_tokens(refresh_token: str) -> StoredTokens:
         "client_secret": _require_client_secret(),
         "refresh_token": refresh_token,
     }
-    existing = _token_store().load()
+    _existing = _token_store().load()
     async with httpx.AsyncClient(timeout=30) as client:
         response = await client.post(_MAL_OAUTH_TOKEN_URL, data=data)
         response.raise_for_status()
         payload = response.json()
-    tokens = StoredTokens.from_token_response(payload, existing_refresh_token=refresh_token)
+    tokens = StoredTokens.from_token_response(
+        payload, existing_refresh_token=refresh_token
+    )
     _token_store().save(tokens)
     return tokens
 
@@ -232,7 +246,10 @@ async def get_auth_status() -> dict[str, Any]:
                         "token_path": str(store.path),
                     }
                 except Exception as exc:
-                    LOGGER.warning("Silent refresh failed during auth status check: %s", exc)
+                    LOGGER.warning(
+                        "Silent refresh failed during auth status check: %s",
+                        exc,
+                    )
 
     if tokens is None:
         return {
@@ -255,7 +272,11 @@ def revoke_auth() -> dict[str, Any]:
     store = _token_store()
     store.clear()
     _login_state.clear()
-    return {"authenticated": False, "provider": "myanimelist", "message": "Tokens revoked"}
+    return {
+        "authenticated": False,
+        "provider": "myanimelist",
+        "message": "Tokens revoked",
+    }
 
 
 async def get_mal_access_token() -> str:
@@ -292,7 +313,9 @@ async def _watch_login(state: str, verifier: str) -> None:
     try:
         code = await asyncio.to_thread(capture_authorization_code, state)
         if code is None:
-            _login_state["error"] = "Authorization timed out or no callback received"
+            _login_state["error"] = (
+                "Authorization timed out or no callback received"
+            )
             return
         tokens = await _exchange_code_for_token(code, verifier)
         _token_store().save(tokens)
