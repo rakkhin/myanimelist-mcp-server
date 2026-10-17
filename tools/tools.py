@@ -9,7 +9,7 @@ import httpx
 from dotenv import load_dotenv
 from fastmcp import FastMCP
 from mcp.types import ToolAnnotations
-from pydantic import Field, ValidationError
+from pydantic import Field
 
 from utils.auth import (
     get_auth_status,
@@ -578,8 +578,6 @@ def register_tools(mcp: FastMCP):
             return await client().put_authed(
                 f"/anime/{anime_id}/my_list_status", await token(), data=fields
             )
-        except ValidationError as e:
-            return {"error": f"Invalid input: {e}"}
         except Exception as e:
             return api_error_payload(e)
 
@@ -647,8 +645,6 @@ def register_tools(mcp: FastMCP):
             return await client().put_authed(
                 f"/manga/{manga_id}/my_list_status", await token(), data=fields
             )
-        except ValidationError as e:
-            return {"error": f"Invalid input: {e}"}
         except Exception as e:
             return api_error_payload(e)
 
