@@ -12,7 +12,7 @@ MCP server for interacting with the MyAnimeList API from Hermes, Claude Desktop,
 - Episode schedule helper: `get_upcoming_anime_episodes`, backed by `https://api.anime-calendar.com/v3/ical/myanimelist/<username>`.
 - Watch queue helper: `get_watch_queue`, combines authenticated `watching` list with Anime Calendar iCal data to show per-anime watched vs latest released counts.
 - News RSS helper: `get_mal_news`, backed by `https://myanimelist.net/rss/news.xml`.
-- Tests for token storage, API helper behavior, iCal episode parsing, and RSS news parsing.
+- Tests, including runs of every read-only tool against anonymised recordings of real MyAnimeList responses.
 
 ## Requirements
 
@@ -71,37 +71,39 @@ If Hermes is managed via Docker, persist this repository and the token path as m
 
 ## Available tools
 
+Search, ranking, seasonal, list and suggestion results always include each title's id, title, alternative titles, main picture, nsfw rating and mean score. Tools with a `fields` argument add the requested fields to these.
+
 ### Anime
 
 - `get_anime`: search anime.
 - `get_anime_details`: fetch anime details by MAL ID.
 - `get_anime_ranking`: fetch anime rankings.
 - `get_seasonal_anime`: fetch anime by year/season.
-- `get_anime_list`: fetch a user's public anime list (status filter optional).
-- `get_my_anime_list`: **auth required**; fetch the authenticated user's anime list.
+- `get_anime_list`: fetch a user's public anime list (status filter optional), including each entry's status, score and progress.
+- `get_my_anime_list`: **auth required**; fetch the authenticated user's anime list, including each entry's status, score and progress.
 - `get_suggested_anime`: **auth required**; fetch recommendations for the authenticated user.
 - `update_myanimelist`: **auth required**; update an anime list entry.
-- `delete_myanimelist_item`: **auth required**; delete an anime list entry.
+- `delete_myanimelist_item`: **auth required**; delete an anime list entry. MyAnimeList reports success even when the title was not on the list.
 
 ### Manga
 
 - `get_manga`: search manga.
 - `get_manga_details`: fetch manga details by MAL ID.
 - `get_manga_ranking`: fetch manga rankings.
-- `get_manga_list`: fetch a user's public manga list (status filter optional).
-- `get_my_manga_list`: **auth required**; fetch the authenticated user's manga list.
+- `get_manga_list`: fetch a user's public manga list (status filter optional), including each entry's status, score and progress.
+- `get_my_manga_list`: **auth required**; fetch the authenticated user's manga list, including each entry's status, score and progress.
 - `update_mymangalist`: **auth required**; update a manga list entry.
-- `delete_mymangalist_item`: **auth required**; delete a manga list entry.
+- `delete_mymangalist_item`: **auth required**; delete a manga list entry. MyAnimeList reports success even when the title was not on the list.
 
 ### Forum
 
 - `get_forum_boards`: fetch all MAL forum boards.
 - `get_forum_topic`: fetch a forum topic by ID.
-- `get_forum_topics`: fetch forum topics with optional filters (board_id, subboard_id, search, user).
+- `get_forum_topics`: fetch forum topics with optional filters (board_id, subboard_id, search, user). Without a filter such as `q`, MyAnimeList may time out.
 
 ### User/auth
 
-- `get_user_profile`: **auth required**; fetch current user profile.
+- `get_user_profile`: **auth required**; fetch current user profile, including anime statistics by default.
 - `mal_auth_login`: start OAuth and return an authorization URL for headless/server setups.
 - `mal_auth_login_status`: check whether the OAuth callback completed and tokens were stored.
 - `mal_auth_status`: inspect local OAuth token status without exposing token values.
@@ -109,8 +111,8 @@ If Hermes is managed via Docker, persist this repository and the token path as m
 
 ### Episode schedule / watch queue
 
-- `get_upcoming_anime_episodes`: fetch upcoming episodes for a MAL username from Anime Calendar iCal and return a digest.
-- `get_watch_queue`: **auth required**; combines the authenticated user's `watching` anime list with Anime Calendar iCal data to return per-title watched episodes versus latest released episodes, plus aggregate counts. Latest released is determined from calendar events (highest past episode or next upcoming minus one) and falls back to `num_episodes` for finished shows. Unknown when neither source is available.
+- `get_upcoming_anime_episodes`: fetch upcoming episodes for a MAL username (defaults to `botafi`) from Anime Calendar iCal and return a digest.
+- `get_watch_queue`: **auth required**; combines the authenticated user's `watching` anime list with the Anime Calendar iCal feed of `username` (defaults to `botafi`) to return per-title watched episodes versus latest released episodes, plus aggregate counts. Latest released is `num_episodes` for finished shows and 0 for shows not yet aired; otherwise it comes from calendar events (highest past episode, or next upcoming minus one). It is unknown when none of these apply.
 
 ### News
 
@@ -119,7 +121,7 @@ If Hermes is managed via Docker, persist this repository and the token path as m
 ## Tests
 
 ```bash
-uv run --with pytest pytest -q
+uv run pytest -q
 ```
 
 ## Useful resources
