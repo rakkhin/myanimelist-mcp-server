@@ -1,3 +1,4 @@
+import asyncio
 from unittest.mock import AsyncMock, Mock, patch
 from xml.etree.ElementTree import ParseError
 
@@ -21,7 +22,7 @@ from utils.schemas import (
 
 class TestToolRegistration:
     def test_all_tools_register(self):
-        from mcp.server.fastmcp import FastMCP
+        from fastmcp import FastMCP
 
         mcp = FastMCP("test")
         with patch("tools.tools.MALClient") as mock_client_cls:
@@ -29,7 +30,7 @@ class TestToolRegistration:
             mock_client_cls.return_value = mock_client
             register_tools(mcp)
 
-        tools = mcp._tool_manager.list_tools()
+        tools = asyncio.run(mcp.list_tools())
         names = {t.name for t in tools}
         assert "get_anime" in names
         assert "get_anime_details" in names
@@ -61,7 +62,7 @@ class TestToolRegistration:
         assert len(names) == 27
 
     def test_get_anime_list_status_is_optional_in_schema(self):
-        from mcp.server.fastmcp import FastMCP
+        from fastmcp import FastMCP
 
         mcp = FastMCP("test")
         with patch("tools.tools.MALClient") as mock_client_cls:
@@ -69,16 +70,12 @@ class TestToolRegistration:
             mock_client_cls.return_value = mock_client
             register_tools(mcp)
 
-        tool = next(
-            t
-            for t in mcp._tool_manager.list_tools()
-            if t.name == "get_anime_list"
-        )
+        tool = asyncio.run(mcp.get_tool("get_anime_list"))
         required = tool.parameters.get("required") or []
         assert "status" not in required
 
     def test_get_manga_list_status_is_optional_in_schema(self):
-        from mcp.server.fastmcp import FastMCP
+        from fastmcp import FastMCP
 
         mcp = FastMCP("test")
         with patch("tools.tools.MALClient") as mock_client_cls:
@@ -86,16 +83,12 @@ class TestToolRegistration:
             mock_client_cls.return_value = mock_client
             register_tools(mcp)
 
-        tool = next(
-            t
-            for t in mcp._tool_manager.list_tools()
-            if t.name == "get_manga_list"
-        )
+        tool = asyncio.run(mcp.get_tool("get_manga_list"))
         required = tool.parameters.get("required") or []
         assert "status" not in required
 
     def test_get_anime_list_omit_status_when_none(self):
-        from mcp.server.fastmcp import FastMCP
+        from fastmcp import FastMCP
 
         mcp = FastMCP("test")
         with patch("tools.tools.MALClient") as mock_client_cls:
@@ -104,13 +97,7 @@ class TestToolRegistration:
             mock_client_cls.return_value = mock_client
             register_tools(mcp)
 
-        import asyncio
-
-        tool = next(
-            t
-            for t in mcp._tool_manager.list_tools()
-            if t.name == "get_anime_list"
-        )
+        tool = asyncio.run(mcp.get_tool("get_anime_list"))
         asyncio.run(tool.fn("testuser", None, None, 5, 0))
 
         call_args = mock_client.get_public.call_args
@@ -120,7 +107,7 @@ class TestToolRegistration:
         assert params["limit"] == 5
 
     def test_get_manga_list_omit_status_when_none(self):
-        from mcp.server.fastmcp import FastMCP
+        from fastmcp import FastMCP
 
         mcp = FastMCP("test")
         with patch("tools.tools.MALClient") as mock_client_cls:
@@ -129,13 +116,7 @@ class TestToolRegistration:
             mock_client_cls.return_value = mock_client
             register_tools(mcp)
 
-        import asyncio
-
-        tool = next(
-            t
-            for t in mcp._tool_manager.list_tools()
-            if t.name == "get_manga_list"
-        )
+        tool = asyncio.run(mcp.get_tool("get_manga_list"))
         asyncio.run(tool.fn("testuser", None, None, 5, 0))
 
         params = mock_client.get_public.call_args.kwargs["params"]
@@ -143,7 +124,7 @@ class TestToolRegistration:
         assert params["limit"] == 5
 
     def test_get_anime_list_limit_clamped_to_1000(self):
-        from mcp.server.fastmcp import FastMCP
+        from fastmcp import FastMCP
 
         mcp = FastMCP("test")
         with patch("tools.tools.MALClient") as mock_client_cls:
@@ -152,20 +133,14 @@ class TestToolRegistration:
             mock_client_cls.return_value = mock_client
             register_tools(mcp)
 
-        import asyncio
-
-        tool = next(
-            t
-            for t in mcp._tool_manager.list_tools()
-            if t.name == "get_anime_list"
-        )
+        tool = asyncio.run(mcp.get_tool("get_anime_list"))
         asyncio.run(tool.fn("testuser", None, None, 2000, 0))
 
         params = mock_client.get_public.call_args.kwargs["params"]
         assert params["limit"] == 1000
 
     def test_get_manga_list_limit_clamped_to_1000(self):
-        from mcp.server.fastmcp import FastMCP
+        from fastmcp import FastMCP
 
         mcp = FastMCP("test")
         with patch("tools.tools.MALClient") as mock_client_cls:
@@ -174,20 +149,14 @@ class TestToolRegistration:
             mock_client_cls.return_value = mock_client
             register_tools(mcp)
 
-        import asyncio
-
-        tool = next(
-            t
-            for t in mcp._tool_manager.list_tools()
-            if t.name == "get_manga_list"
-        )
+        tool = asyncio.run(mcp.get_tool("get_manga_list"))
         asyncio.run(tool.fn("testuser", None, None, 2000, 0))
 
         params = mock_client.get_public.call_args.kwargs["params"]
         assert params["limit"] == 1000
 
     def test_get_anime_ranking_accepts_fields(self):
-        from mcp.server.fastmcp import FastMCP
+        from fastmcp import FastMCP
 
         mcp = FastMCP("test")
         with patch("tools.tools.MALClient") as mock_client_cls:
@@ -196,13 +165,7 @@ class TestToolRegistration:
             mock_client_cls.return_value = mock_client
             register_tools(mcp)
 
-        import asyncio
-
-        tool = next(
-            t
-            for t in mcp._tool_manager.list_tools()
-            if t.name == "get_anime_ranking"
-        )
+        tool = asyncio.run(mcp.get_tool("get_anime_ranking"))
         asyncio.run(tool.fn(AnimeRanking.ALL, 10, 0, ["id", "title", "rank"]))
 
         call_args = mock_client.get_public.call_args
@@ -211,7 +174,7 @@ class TestToolRegistration:
         assert "rank" in call_args.kwargs["params"]["fields"]
 
     def test_get_seasonal_anime_accepts_fields(self):
-        from mcp.server.fastmcp import FastMCP
+        from fastmcp import FastMCP
 
         mcp = FastMCP("test")
         with patch("tools.tools.MALClient") as mock_client_cls:
@@ -220,13 +183,7 @@ class TestToolRegistration:
             mock_client_cls.return_value = mock_client
             register_tools(mcp)
 
-        import asyncio
-
-        tool = next(
-            t
-            for t in mcp._tool_manager.list_tools()
-            if t.name == "get_seasonal_anime"
-        )
+        tool = asyncio.run(mcp.get_tool("get_seasonal_anime"))
         asyncio.run(tool.fn(Season.SUMMER, 2024, None, 10, 0, ["id", "title"]))
 
         call_args = mock_client.get_public.call_args
@@ -234,7 +191,7 @@ class TestToolRegistration:
         assert "fields" in call_args.kwargs["params"]
 
     def test_get_manga_ranking_accepts_fields(self):
-        from mcp.server.fastmcp import FastMCP
+        from fastmcp import FastMCP
 
         mcp = FastMCP("test")
         with patch("tools.tools.MALClient") as mock_client_cls:
@@ -243,13 +200,7 @@ class TestToolRegistration:
             mock_client_cls.return_value = mock_client
             register_tools(mcp)
 
-        import asyncio
-
-        tool = next(
-            t
-            for t in mcp._tool_manager.list_tools()
-            if t.name == "get_manga_ranking"
-        )
+        tool = asyncio.run(mcp.get_tool("get_manga_ranking"))
         asyncio.run(tool.fn(MangaRanking.ALL, 100, 0, ["id", "title", "rank"]))
 
         call_args = mock_client.get_public.call_args
@@ -257,7 +208,7 @@ class TestToolRegistration:
         assert "fields" in call_args.kwargs["params"]
 
     def test_get_forum_boards_calls_correct_endpoint(self):
-        from mcp.server.fastmcp import FastMCP
+        from fastmcp import FastMCP
 
         mcp = FastMCP("test")
         with patch("tools.tools.MALClient") as mock_client_cls:
@@ -266,19 +217,13 @@ class TestToolRegistration:
             mock_client_cls.return_value = mock_client
             register_tools(mcp)
 
-        import asyncio
-
-        tool = next(
-            t
-            for t in mcp._tool_manager.list_tools()
-            if t.name == "get_forum_boards"
-        )
+        tool = asyncio.run(mcp.get_tool("get_forum_boards"))
         asyncio.run(tool.fn())
 
         mock_client.get_public.assert_called_once_with("/forum/boards")
 
     def test_get_forum_topic_calls_correct_endpoint(self):
-        from mcp.server.fastmcp import FastMCP
+        from fastmcp import FastMCP
 
         mcp = FastMCP("test")
         with patch("tools.tools.MALClient") as mock_client_cls:
@@ -287,13 +232,7 @@ class TestToolRegistration:
             mock_client_cls.return_value = mock_client
             register_tools(mcp)
 
-        import asyncio
-
-        tool = next(
-            t
-            for t in mcp._tool_manager.list_tools()
-            if t.name == "get_forum_topic"
-        )
+        tool = asyncio.run(mcp.get_tool("get_forum_topic"))
         asyncio.run(tool.fn(481, 50, 0))
 
         call_args = mock_client.get_public.call_args
@@ -301,7 +240,7 @@ class TestToolRegistration:
         assert call_args.kwargs["params"]["limit"] == 50
 
     def test_get_forum_topics_calls_correct_endpoint(self):
-        from mcp.server.fastmcp import FastMCP
+        from fastmcp import FastMCP
 
         mcp = FastMCP("test")
         with patch("tools.tools.MALClient") as mock_client_cls:
@@ -310,13 +249,7 @@ class TestToolRegistration:
             mock_client_cls.return_value = mock_client
             register_tools(mcp)
 
-        import asyncio
-
-        tool = next(
-            t
-            for t in mcp._tool_manager.list_tools()
-            if t.name == "get_forum_topics"
-        )
+        tool = asyncio.run(mcp.get_tool("get_forum_topics"))
         asyncio.run(tool.fn(1, 2, 10, 0, "recent", "love", None, None))
 
         call_args = mock_client.get_public.call_args
@@ -328,7 +261,7 @@ class TestToolRegistration:
         assert params["limit"] == 10
 
     def test_get_forum_topics_omits_optional_params_when_none(self):
-        from mcp.server.fastmcp import FastMCP
+        from fastmcp import FastMCP
 
         mcp = FastMCP("test")
         with patch("tools.tools.MALClient") as mock_client_cls:
@@ -337,13 +270,7 @@ class TestToolRegistration:
             mock_client_cls.return_value = mock_client
             register_tools(mcp)
 
-        import asyncio
-
-        tool = next(
-            t
-            for t in mcp._tool_manager.list_tools()
-            if t.name == "get_forum_topics"
-        )
+        tool = asyncio.run(mcp.get_tool("get_forum_topics"))
         asyncio.run(tool.fn(None, None, 100, 0, "recent", None, None, None))
 
         params = mock_client.get_public.call_args.kwargs["params"]
@@ -356,7 +283,7 @@ class TestToolRegistration:
         assert params["limit"] == 100
 
     def test_ranking_fields_not_in_params_when_none(self):
-        from mcp.server.fastmcp import FastMCP
+        from fastmcp import FastMCP
 
         mcp = FastMCP("test")
         with patch("tools.tools.MALClient") as mock_client_cls:
@@ -365,20 +292,14 @@ class TestToolRegistration:
             mock_client_cls.return_value = mock_client
             register_tools(mcp)
 
-        import asyncio
-
-        tool = next(
-            t
-            for t in mcp._tool_manager.list_tools()
-            if t.name == "get_anime_ranking"
-        )
+        tool = asyncio.run(mcp.get_tool("get_anime_ranking"))
         asyncio.run(tool.fn(AnimeRanking.ALL, 5, 0, None))
 
         params = mock_client.get_public.call_args.kwargs["params"]
         assert "fields" not in params
 
     def test_get_my_anime_list_endpoint_path(self):
-        from mcp.server.fastmcp import FastMCP
+        from fastmcp import FastMCP
 
         mcp = FastMCP("test")
         with (
@@ -393,13 +314,7 @@ class TestToolRegistration:
             mock_client_cls.return_value = mock_client
             register_tools(mcp)
 
-            import asyncio
-
-            tool = next(
-                t
-                for t in mcp._tool_manager.list_tools()
-                if t.name == "get_my_anime_list"
-            )
+            tool = asyncio.run(mcp.get_tool("get_my_anime_list"))
             asyncio.run(tool.fn(None, None, 10, 0, None))
 
             mock_client.get_authed.assert_called_once()
@@ -409,7 +324,7 @@ class TestToolRegistration:
             )
 
     def test_get_my_manga_list_endpoint_path(self):
-        from mcp.server.fastmcp import FastMCP
+        from fastmcp import FastMCP
 
         mcp = FastMCP("test")
         with (
@@ -424,13 +339,7 @@ class TestToolRegistration:
             mock_client_cls.return_value = mock_client
             register_tools(mcp)
 
-            import asyncio
-
-            tool = next(
-                t
-                for t in mcp._tool_manager.list_tools()
-                if t.name == "get_my_manga_list"
-            )
+            tool = asyncio.run(mcp.get_tool("get_my_manga_list"))
             asyncio.run(tool.fn(None, None, 10, 0, None))
 
             mock_client.get_authed.assert_called_once()
@@ -440,7 +349,7 @@ class TestToolRegistration:
             )
 
     def test_get_my_anime_list_uses_authenticated_token(self):
-        from mcp.server.fastmcp import FastMCP
+        from fastmcp import FastMCP
 
         mcp = FastMCP("test")
         with (
@@ -455,19 +364,13 @@ class TestToolRegistration:
             mock_client_cls.return_value = mock_client
             register_tools(mcp)
 
-            import asyncio
-
-            tool = next(
-                t
-                for t in mcp._tool_manager.list_tools()
-                if t.name == "get_my_anime_list"
-            )
+            tool = asyncio.run(mcp.get_tool("get_my_anime_list"))
             asyncio.run(tool.fn(None, None, 10, 0, None))
 
             assert mock_client.get_authed.call_args.args[1] == "test-token"
 
     def test_get_my_manga_list_uses_authenticated_token(self):
-        from mcp.server.fastmcp import FastMCP
+        from fastmcp import FastMCP
 
         mcp = FastMCP("test")
         with (
@@ -482,19 +385,13 @@ class TestToolRegistration:
             mock_client_cls.return_value = mock_client
             register_tools(mcp)
 
-            import asyncio
-
-            tool = next(
-                t
-                for t in mcp._tool_manager.list_tools()
-                if t.name == "get_my_manga_list"
-            )
+            tool = asyncio.run(mcp.get_tool("get_my_manga_list"))
             asyncio.run(tool.fn(None, None, 10, 0, None))
 
             assert mock_client.get_authed.call_args.args[1] == "test-token"
 
     def test_get_my_anime_list_limit_clamped_to_1000(self):
-        from mcp.server.fastmcp import FastMCP
+        from fastmcp import FastMCP
 
         mcp = FastMCP("test")
         with (
@@ -509,20 +406,14 @@ class TestToolRegistration:
             mock_client_cls.return_value = mock_client
             register_tools(mcp)
 
-            import asyncio
-
-            tool = next(
-                t
-                for t in mcp._tool_manager.list_tools()
-                if t.name == "get_my_anime_list"
-            )
+            tool = asyncio.run(mcp.get_tool("get_my_anime_list"))
             asyncio.run(tool.fn(None, None, 2000, 0, None))
 
             params = mock_client.get_authed.call_args.kwargs["params"]
             assert params["limit"] == 1000
 
     def test_get_my_manga_list_limit_clamped_to_1000(self):
-        from mcp.server.fastmcp import FastMCP
+        from fastmcp import FastMCP
 
         mcp = FastMCP("test")
         with (
@@ -537,20 +428,14 @@ class TestToolRegistration:
             mock_client_cls.return_value = mock_client
             register_tools(mcp)
 
-            import asyncio
-
-            tool = next(
-                t
-                for t in mcp._tool_manager.list_tools()
-                if t.name == "get_my_manga_list"
-            )
+            tool = asyncio.run(mcp.get_tool("get_my_manga_list"))
             asyncio.run(tool.fn(None, None, 2000, 0, None))
 
             params = mock_client.get_authed.call_args.kwargs["params"]
             assert params["limit"] == 1000
 
     def test_get_my_anime_list_with_status_and_sort(self):
-        from mcp.server.fastmcp import FastMCP
+        from fastmcp import FastMCP
 
         mcp = FastMCP("test")
         with (
@@ -565,13 +450,7 @@ class TestToolRegistration:
             mock_client_cls.return_value = mock_client
             register_tools(mcp)
 
-            import asyncio
-
-            tool = next(
-                t
-                for t in mcp._tool_manager.list_tools()
-                if t.name == "get_my_anime_list"
-            )
+            tool = asyncio.run(mcp.get_tool("get_my_anime_list"))
             asyncio.run(
                 tool.fn(
                     AnimeStatus.COMPLETED,
@@ -589,7 +468,7 @@ class TestToolRegistration:
             assert params["offset"] == 10
 
     def test_get_my_manga_list_with_status_and_sort(self):
-        from mcp.server.fastmcp import FastMCP
+        from fastmcp import FastMCP
 
         mcp = FastMCP("test")
         with (
@@ -604,13 +483,7 @@ class TestToolRegistration:
             mock_client_cls.return_value = mock_client
             register_tools(mcp)
 
-            import asyncio
-
-            tool = next(
-                t
-                for t in mcp._tool_manager.list_tools()
-                if t.name == "get_my_manga_list"
-            )
+            tool = asyncio.run(mcp.get_tool("get_my_manga_list"))
             asyncio.run(
                 tool.fn(
                     MangaStatus.READING,
@@ -628,7 +501,7 @@ class TestToolRegistration:
             assert params["offset"] == 5
 
     def test_get_my_anime_list_omit_status_sort_when_none(self):
-        from mcp.server.fastmcp import FastMCP
+        from fastmcp import FastMCP
 
         mcp = FastMCP("test")
         with (
@@ -643,13 +516,7 @@ class TestToolRegistration:
             mock_client_cls.return_value = mock_client
             register_tools(mcp)
 
-            import asyncio
-
-            tool = next(
-                t
-                for t in mcp._tool_manager.list_tools()
-                if t.name == "get_my_anime_list"
-            )
+            tool = asyncio.run(mcp.get_tool("get_my_anime_list"))
             asyncio.run(tool.fn(None, None, 10, 0, None))
 
             params = mock_client.get_authed.call_args.kwargs["params"]
@@ -657,7 +524,7 @@ class TestToolRegistration:
             assert "sort" not in params
 
     def test_get_my_manga_list_omit_status_sort_when_none(self):
-        from mcp.server.fastmcp import FastMCP
+        from fastmcp import FastMCP
 
         mcp = FastMCP("test")
         with (
@@ -672,13 +539,7 @@ class TestToolRegistration:
             mock_client_cls.return_value = mock_client
             register_tools(mcp)
 
-            import asyncio
-
-            tool = next(
-                t
-                for t in mcp._tool_manager.list_tools()
-                if t.name == "get_my_manga_list"
-            )
+            tool = asyncio.run(mcp.get_tool("get_my_manga_list"))
             asyncio.run(tool.fn(None, None, 10, 0, None))
 
             params = mock_client.get_authed.call_args.kwargs["params"]
@@ -686,7 +547,7 @@ class TestToolRegistration:
             assert "sort" not in params
 
     def test_get_my_anime_list_with_fields(self):
-        from mcp.server.fastmcp import FastMCP
+        from fastmcp import FastMCP
 
         mcp = FastMCP("test")
         with (
@@ -701,13 +562,7 @@ class TestToolRegistration:
             mock_client_cls.return_value = mock_client
             register_tools(mcp)
 
-            import asyncio
-
-            tool = next(
-                t
-                for t in mcp._tool_manager.list_tools()
-                if t.name == "get_my_anime_list"
-            )
+            tool = asyncio.run(mcp.get_tool("get_my_anime_list"))
             asyncio.run(tool.fn(None, None, 10, 0, ["id", "title", "mean"]))
 
             params = mock_client.get_authed.call_args.kwargs["params"]
@@ -715,7 +570,7 @@ class TestToolRegistration:
             assert "mean" in params["fields"]
 
     def test_get_my_manga_list_with_fields(self):
-        from mcp.server.fastmcp import FastMCP
+        from fastmcp import FastMCP
 
         mcp = FastMCP("test")
         with (
@@ -730,13 +585,7 @@ class TestToolRegistration:
             mock_client_cls.return_value = mock_client
             register_tools(mcp)
 
-            import asyncio
-
-            tool = next(
-                t
-                for t in mcp._tool_manager.list_tools()
-                if t.name == "get_my_manga_list"
-            )
+            tool = asyncio.run(mcp.get_tool("get_my_manga_list"))
             asyncio.run(tool.fn(None, None, 10, 0, ["id", "title", "mean"]))
 
             params = mock_client.get_authed.call_args.kwargs["params"]
@@ -744,7 +593,7 @@ class TestToolRegistration:
             assert "mean" in params["fields"]
 
     def test_get_my_anime_list_fields_not_in_params_when_none(self):
-        from mcp.server.fastmcp import FastMCP
+        from fastmcp import FastMCP
 
         mcp = FastMCP("test")
         with (
@@ -759,20 +608,14 @@ class TestToolRegistration:
             mock_client_cls.return_value = mock_client
             register_tools(mcp)
 
-            import asyncio
-
-            tool = next(
-                t
-                for t in mcp._tool_manager.list_tools()
-                if t.name == "get_my_anime_list"
-            )
+            tool = asyncio.run(mcp.get_tool("get_my_anime_list"))
             asyncio.run(tool.fn(None, None, 10, 0, None))
 
             params = mock_client.get_authed.call_args.kwargs["params"]
             assert "fields" not in params
 
     def test_get_my_manga_list_fields_not_in_params_when_none(self):
-        from mcp.server.fastmcp import FastMCP
+        from fastmcp import FastMCP
 
         mcp = FastMCP("test")
         with (
@@ -787,20 +630,14 @@ class TestToolRegistration:
             mock_client_cls.return_value = mock_client
             register_tools(mcp)
 
-            import asyncio
-
-            tool = next(
-                t
-                for t in mcp._tool_manager.list_tools()
-                if t.name == "get_my_manga_list"
-            )
+            tool = asyncio.run(mcp.get_tool("get_my_manga_list"))
             asyncio.run(tool.fn(None, None, 10, 0, None))
 
             params = mock_client.get_authed.call_args.kwargs["params"]
             assert "fields" not in params
 
     def test_get_my_anime_list_missing_token_error(self):
-        from mcp.server.fastmcp import FastMCP
+        from fastmcp import FastMCP
 
         mcp = FastMCP("test")
         with (
@@ -814,20 +651,14 @@ class TestToolRegistration:
             mock_client_cls.return_value = mock_client
             register_tools(mcp)
 
-            import asyncio
-
-            tool = next(
-                t
-                for t in mcp._tool_manager.list_tools()
-                if t.name == "get_my_anime_list"
-            )
+            tool = asyncio.run(mcp.get_tool("get_my_anime_list"))
             result = asyncio.run(tool.fn(None, None, 10, 0, None))
 
             assert "error" in result
             mock_client.get_authed.assert_not_called()
 
     def test_get_my_manga_list_missing_token_error(self):
-        from mcp.server.fastmcp import FastMCP
+        from fastmcp import FastMCP
 
         mcp = FastMCP("test")
         with (
@@ -841,20 +672,14 @@ class TestToolRegistration:
             mock_client_cls.return_value = mock_client
             register_tools(mcp)
 
-            import asyncio
-
-            tool = next(
-                t
-                for t in mcp._tool_manager.list_tools()
-                if t.name == "get_my_manga_list"
-            )
+            tool = asyncio.run(mcp.get_tool("get_my_manga_list"))
             result = asyncio.run(tool.fn(None, None, 10, 0, None))
 
             assert "error" in result
             mock_client.get_authed.assert_not_called()
 
     def test_get_my_anime_list_offset_clamped_to_zero(self):
-        from mcp.server.fastmcp import FastMCP
+        from fastmcp import FastMCP
 
         mcp = FastMCP("test")
         with (
@@ -869,20 +694,14 @@ class TestToolRegistration:
             mock_client_cls.return_value = mock_client
             register_tools(mcp)
 
-            import asyncio
-
-            tool = next(
-                t
-                for t in mcp._tool_manager.list_tools()
-                if t.name == "get_my_anime_list"
-            )
+            tool = asyncio.run(mcp.get_tool("get_my_anime_list"))
             asyncio.run(tool.fn(None, None, 10, -5, None))
 
             params = mock_client.get_authed.call_args.kwargs["params"]
             assert params["offset"] == 0
 
     def test_get_my_anime_list_limit_clamped_to_one(self):
-        from mcp.server.fastmcp import FastMCP
+        from fastmcp import FastMCP
 
         mcp = FastMCP("test")
         with (
@@ -897,13 +716,7 @@ class TestToolRegistration:
             mock_client_cls.return_value = mock_client
             register_tools(mcp)
 
-            import asyncio
-
-            tool = next(
-                t
-                for t in mcp._tool_manager.list_tools()
-                if t.name == "get_my_anime_list"
-            )
+            tool = asyncio.run(mcp.get_tool("get_my_anime_list"))
             asyncio.run(tool.fn(None, None, -5, 0, None))
 
             params = mock_client.get_authed.call_args.kwargs["params"]
@@ -1010,7 +823,7 @@ class TestParseMalNewsRss:
 
 class TestGetMalNews:
     def test_get_mal_news_fetches_rss_url(self):
-        from mcp.server.fastmcp import FastMCP
+        from fastmcp import FastMCP
 
         rss_response = """<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0"><channel>
@@ -1037,13 +850,7 @@ class TestGetMalNews:
 
             register_tools(mcp)
 
-            import asyncio
-
-            tool = next(
-                t
-                for t in mcp._tool_manager.list_tools()
-                if t.name == "get_mal_news"
-            )
+            tool = asyncio.run(mcp.get_tool("get_mal_news"))
             result = asyncio.run(tool.fn(5))
 
             mock_http.get.assert_called_once_with(
@@ -1052,7 +859,7 @@ class TestGetMalNews:
             assert len(result["articles"]) == 1
 
     def test_get_mal_news_limit_is_clamped(self):
-        from mcp.server.fastmcp import FastMCP
+        from fastmcp import FastMCP
 
         rss_empty = """<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0"><channel><title>News</title></channel></rss>"""
@@ -1076,19 +883,13 @@ class TestGetMalNews:
 
             register_tools(mcp)
 
-            import asyncio
-
-            tool = next(
-                t
-                for t in mcp._tool_manager.list_tools()
-                if t.name == "get_mal_news"
-            )
+            tool = asyncio.run(mcp.get_tool("get_mal_news"))
             asyncio.run(tool.fn(100))
 
             mock_http.get.assert_called_once()
 
     def test_get_mal_news_http_error(self):
-        from mcp.server.fastmcp import FastMCP
+        from fastmcp import FastMCP
 
         mcp = FastMCP("test")
         with (
@@ -1115,13 +916,7 @@ class TestGetMalNews:
 
             register_tools(mcp)
 
-            import asyncio
-
-            tool = next(
-                t
-                for t in mcp._tool_manager.list_tools()
-                if t.name == "get_mal_news"
-            )
+            tool = asyncio.run(mcp.get_tool("get_mal_news"))
             result = asyncio.run(tool.fn(10))
 
             assert "error" in result
@@ -1130,7 +925,7 @@ class TestGetMalNews:
 
 class TestSeasonalAnimeErrorHandling:
     def test_get_seasonal_anime_empty_error_from_mal_api(self):
-        from mcp.server.fastmcp import FastMCP
+        from fastmcp import FastMCP
 
         mcp = FastMCP("test")
         with patch("tools.tools.MALClient") as mock_client_cls:
@@ -1143,13 +938,7 @@ class TestSeasonalAnimeErrorHandling:
             mock_client_cls.return_value = mock_client
             register_tools(mcp)
 
-            import asyncio
-
-            tool = next(
-                t
-                for t in mcp._tool_manager.list_tools()
-                if t.name == "get_seasonal_anime"
-            )
+            tool = asyncio.run(mcp.get_tool("get_seasonal_anime"))
             result = asyncio.run(
                 tool.fn(Season.SUMMER, 2026, None, 10, 0, None)
             )
@@ -1159,7 +948,7 @@ class TestSeasonalAnimeErrorHandling:
             assert result["status_code"] == 200
 
     def test_get_seasonal_anime_mal_api_error_with_message(self):
-        from mcp.server.fastmcp import FastMCP
+        from fastmcp import FastMCP
 
         mcp = FastMCP("test")
         with patch("tools.tools.MALClient") as mock_client_cls:
@@ -1173,13 +962,7 @@ class TestSeasonalAnimeErrorHandling:
             mock_client_cls.return_value = mock_client
             register_tools(mcp)
 
-            import asyncio
-
-            tool = next(
-                t
-                for t in mcp._tool_manager.list_tools()
-                if t.name == "get_seasonal_anime"
-            )
+            tool = asyncio.run(mcp.get_tool("get_seasonal_anime"))
             result = asyncio.run(
                 tool.fn(Season.SUMMER, 2026, None, 10, 0, None)
             )
@@ -1189,7 +972,7 @@ class TestSeasonalAnimeErrorHandling:
             assert result["status_code"] == 200
 
     def test_get_seasonal_anime_generic_exception_empty_string(self):
-        from mcp.server.fastmcp import FastMCP
+        from fastmcp import FastMCP
 
         mcp = FastMCP("test")
         with patch("tools.tools.MALClient") as mock_client_cls:
@@ -1198,13 +981,7 @@ class TestSeasonalAnimeErrorHandling:
             mock_client_cls.return_value = mock_client
             register_tools(mcp)
 
-            import asyncio
-
-            tool = next(
-                t
-                for t in mcp._tool_manager.list_tools()
-                if t.name == "get_seasonal_anime"
-            )
+            tool = asyncio.run(mcp.get_tool("get_seasonal_anime"))
             result = asyncio.run(
                 tool.fn(Season.SUMMER, 2026, None, 10, 0, None)
             )
@@ -1214,7 +991,7 @@ class TestSeasonalAnimeErrorHandling:
 
     def test_get_seasonal_anime_http_error_converted_to_payload(self):
         import httpx
-        from mcp.server.fastmcp import FastMCP
+        from fastmcp import FastMCP
 
         mcp = FastMCP("test")
         with patch("tools.tools.MALClient") as mock_client_cls:
@@ -1231,13 +1008,7 @@ class TestSeasonalAnimeErrorHandling:
             mock_client_cls.return_value = mock_client
             register_tools(mcp)
 
-            import asyncio
-
-            tool = next(
-                t
-                for t in mcp._tool_manager.list_tools()
-                if t.name == "get_seasonal_anime"
-            )
+            tool = asyncio.run(mcp.get_tool("get_seasonal_anime"))
             result = asyncio.run(
                 tool.fn(Season.SUMMER, 2026, None, 10, 0, None)
             )
@@ -1249,7 +1020,7 @@ class TestSeasonalAnimeErrorHandling:
 
 class TestGetWatchQueue:
     def test_get_watch_queue_auth_required(self):
-        from mcp.server.fastmcp import FastMCP
+        from fastmcp import FastMCP
 
         mcp = FastMCP("test")
         with (
@@ -1276,13 +1047,7 @@ class TestGetWatchQueue:
 
             register_tools(mcp)
 
-            import asyncio
-
-            tool = next(
-                t
-                for t in mcp._tool_manager.list_tools()
-                if t.name == "get_watch_queue"
-            )
+            tool = asyncio.run(mcp.get_tool("get_watch_queue"))
             asyncio.run(tool.fn("testuser"))
 
             mock_client.get_authed.assert_called_once()
@@ -1299,7 +1064,7 @@ class TestGetWatchQueue:
             )
 
     def test_get_watch_queue_missing_token_error(self):
-        from mcp.server.fastmcp import FastMCP
+        from fastmcp import FastMCP
 
         mcp = FastMCP("test")
         with (
@@ -1313,13 +1078,7 @@ class TestGetWatchQueue:
             mock_client_cls.return_value = mock_client
             register_tools(mcp)
 
-            import asyncio
-
-            tool = next(
-                t
-                for t in mcp._tool_manager.list_tools()
-                if t.name == "get_watch_queue"
-            )
+            tool = asyncio.run(mcp.get_tool("get_watch_queue"))
             result = asyncio.run(tool.fn())
 
             assert "error" in result
@@ -1328,7 +1087,7 @@ class TestGetWatchQueue:
     def test_get_watch_queue_fetches_calendar_url(self):
         from urllib.parse import quote
 
-        from mcp.server.fastmcp import FastMCP
+        from fastmcp import FastMCP
 
         mcp = FastMCP("test")
         with (
@@ -1355,13 +1114,7 @@ class TestGetWatchQueue:
 
             register_tools(mcp)
 
-            import asyncio
-
-            tool = next(
-                t
-                for t in mcp._tool_manager.list_tools()
-                if t.name == "get_watch_queue"
-            )
+            tool = asyncio.run(mcp.get_tool("get_watch_queue"))
             asyncio.run(tool.fn("test user"))
 
             expected = f"https://api.anime-calendar.com/v3/ical/myanimelist/{quote('test user', safe='')}"
@@ -1369,7 +1122,7 @@ class TestGetWatchQueue:
 
     def test_get_watch_queue_calendar_error_returns_safe_payload(self):
         import httpx as httpx_lib
-        from mcp.server.fastmcp import FastMCP
+        from fastmcp import FastMCP
 
         mcp = FastMCP("test")
         with (
@@ -1399,20 +1152,14 @@ class TestGetWatchQueue:
 
             register_tools(mcp)
 
-            import asyncio
-
-            tool = next(
-                t
-                for t in mcp._tool_manager.list_tools()
-                if t.name == "get_watch_queue"
-            )
+            tool = asyncio.run(mcp.get_tool("get_watch_queue"))
             result = asyncio.run(tool.fn())
 
             assert "error" in result
             assert "503" in result["error"]
 
     def test_get_watch_queue_with_data_returns_structured_result(self):
-        from mcp.server.fastmcp import FastMCP
+        from fastmcp import FastMCP
 
         mcp = FastMCP("test")
         with (
@@ -1453,13 +1200,7 @@ class TestGetWatchQueue:
 
             register_tools(mcp)
 
-            import asyncio
-
-            tool = next(
-                t
-                for t in mcp._tool_manager.list_tools()
-                if t.name == "get_watch_queue"
-            )
+            tool = asyncio.run(mcp.get_tool("get_watch_queue"))
             result = asyncio.run(tool.fn("testuser"))
 
             assert "entries" in result

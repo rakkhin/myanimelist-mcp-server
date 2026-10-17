@@ -7,7 +7,7 @@ from xml.etree import ElementTree
 
 import httpx
 from dotenv import load_dotenv
-from mcp.server.fastmcp import FastMCP
+from fastmcp import FastMCP
 from pydantic import Field, ValidationError
 
 from utils.auth import (
