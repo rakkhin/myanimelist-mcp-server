@@ -1,15 +1,7 @@
 from tools.tools import (
-    anime_calendar_ical_url,
     normalize_episode_window,
     parse_mal_news_rss,
 )
-
-
-def test_anime_calendar_ical_url_encodes_username():
-    assert (
-        anime_calendar_ical_url("bot afi/日本")
-        == "https://api.anime-calendar.com/v3/ical/myanimelist/bot%20afi%2F%E6%97%A5%E6%9C%AC"
-    )
 
 
 def test_normalize_episode_window_clamps_to_positive_reasonable_range():

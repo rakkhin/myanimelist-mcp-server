@@ -5,15 +5,15 @@ scripts/anonymize_fixtures.py from real captures.
 """
 
 import json
-import re
-from datetime import UTC, datetime
+from datetime import datetime
 from pathlib import Path
 from unittest.mock import AsyncMock, Mock
 
+import httpx
 import pytest
 
 from tools import tools
-from utils import episodes
+from utils import anilist, episodes
 from utils.schemas import AnimeFields, MangaFields
 
 FIXTURE_DIR = Path(__file__).parent / "fixtures" / "mal"
@@ -153,6 +153,8 @@ def test_tool_returns_recorded_mal_response_unchanged(
         ANIME_LIST,
         MANGA_LIST,
         "get_watch_queue_animelist.json",
+        "get_upcoming_anime_episodes_watching.json",
+        "get_upcoming_anime_episodes_plan_to_watch.json",
     ],
 )
 def test_user_list_items_carry_list_status(fixture):
@@ -209,17 +211,25 @@ def test_user_profile_carries_anime_statistics():
 # ------------------------------------------------------------ derived tools
 
 
-def _freeze_at_calendar_stamp(monkeypatch, calendar: str) -> None:
-    # The calendar is generated (DTSTAMP) just before the tool used it.
-    stamp = re.search(r"^DTSTAMP:(\S+)", calendar, re.MULTILINE).group(1)
-    moment = datetime.strptime(stamp, "%Y%m%dT%H%M%SZ").replace(tzinfo=UTC)
+def _freeze_at(monkeypatch, moment: str) -> None:
+    frozen = datetime.fromisoformat(moment)
 
     class FrozenDatetime(datetime):
         @classmethod
         def now(cls, tz=None):
-            return moment if tz else moment.replace(tzinfo=None)
+            return frozen if tz else frozen.replace(tzinfo=None)
 
     monkeypatch.setattr(episodes, "datetime", FrozenDatetime)
+
+
+def _serve_anilist(monkeypatch, pages: list) -> None:
+    http = AsyncMock()
+    http.__aenter__ = AsyncMock(return_value=http)
+    http.__aexit__ = AsyncMock(return_value=False)
+    http.post = AsyncMock(
+        side_effect=[httpx.Response(200, json=page) for page in pages]
+    )
+    monkeypatch.setattr(anilist.httpx, "AsyncClient", Mock(return_value=http))
 
 
 def _serve_text(monkeypatch, text: str) -> None:
@@ -232,30 +242,28 @@ def _serve_text(monkeypatch, text: str) -> None:
 
 
 def test_watch_queue_is_rebuilt_from_recorded_inputs(mal, monkeypatch):
-    calendar = load("get_watch_queue_calendar.ics")
-    responses = {
-        "/users/@me": load("get_user_profile.json"),
-        "/users/@me/animelist": load("get_watch_queue_animelist.json"),
-    }
-    mal.client.get_authed.side_effect = lambda endpoint, *a, **kw: responses[
-        endpoint
-    ]
-    _serve_text(monkeypatch, calendar)
-    _freeze_at_calendar_stamp(monkeypatch, calendar)
+    mal.client.get_authed.return_value = load("get_watch_queue_animelist.json")
+    _serve_anilist(monkeypatch, load("get_watch_queue_anilist.json"))
 
     result = mal.call_over_mcp("get_watch_queue", {})
 
     assert result.structured_content == load("get_watch_queue.json")
 
 
-def test_upcoming_episodes_are_rebuilt_from_recorded_calendar(
-    mal, monkeypatch
-):
-    calendar = load("get_upcoming_anime_episodes_calendar.ics")
+def test_upcoming_episodes_are_rebuilt_from_recorded_inputs(mal, monkeypatch):
     recorded = load("get_upcoming_anime_episodes.json")
-    mal.client.get_authed.return_value = {"name": recorded["username"]}
-    _serve_text(monkeypatch, calendar)
-    _freeze_at_calendar_stamp(monkeypatch, calendar)
+    lists = {
+        status: load(f"get_upcoming_anime_episodes_{status}.json")
+        for status in ("watching", "plan_to_watch")
+    }
+    mal.client.get_authed.side_effect = lambda endpoint, token, params: lists[
+        params["status"]
+    ]
+    _serve_anilist(
+        monkeypatch, load("get_upcoming_anime_episodes_anilist.json")
+    )
+    # The digest window starts when the tool ran.
+    _freeze_at(monkeypatch, recorded["from"])
 
     result = mal.call_over_mcp(
         "get_upcoming_anime_episodes", {"hours": recorded["hours"]}

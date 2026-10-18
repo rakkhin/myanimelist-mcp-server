@@ -11,6 +11,7 @@ from fastmcp import FastMCP
 from mcp.types import ToolAnnotations
 from pydantic import Field
 
+from utils.anilist import AniListError, fetch_upcoming_episodes
 from utils.auth import (
     MALAuthError,
     get_auth_status,
@@ -19,18 +20,13 @@ from utils.auth import (
     login_status,
     revoke_auth,
 )
-from utils.episodes import (
-    build_watch_queue,
-    parse_anime_calendar_events,
-    upcoming_events_digest,
-)
+from utils.episodes import airing_ids, build_watch_queue, upcoming_episodes
 from utils.mal_client import (
     MALAPIError,
     MALClient,
     api_error_payload,
     build_fields,
     clamp_limit,
-    safe_error,
 )
 from utils.schemas import *
 
@@ -76,43 +72,6 @@ _DEFAULT_MANGA_FIELDS = (
     MangaFields.NSFW,
     MangaFields.MEAN,
 )
-
-
-def anime_calendar_ical_url(username: str) -> str:
-    encoded_username = quote(username.strip(), safe="")
-    return f"https://api.anime-calendar.com/v3/ical/myanimelist/{encoded_username}"
-
-
-class AnimeCalendarError(Exception):
-    """Anime Calendar did not return a user's calendar."""
-
-    def __init__(self, response: httpx.Response) -> None:
-        self.status_code = response.status_code
-        detail = f"{response.status_code} {response.reason_phrase}"
-        try:
-            body = response.json()
-        except ValueError:
-            body = None
-        # E.g. a 403 explaining that the user's MAL lists must be public.
-        if isinstance(body, dict) and body.get("message"):
-            detail = f"{detail}: {body['message']}"
-        super().__init__(f"Anime Calendar error: {detail}")
-
-    def payload(self) -> dict:
-        return {
-            "error": safe_error(str(self)),
-            "status_code": self.status_code,
-        }
-
-
-async def fetch_anime_calendar(username: str) -> str:
-    async with httpx.AsyncClient(timeout=30) as calendar_client:
-        response = await calendar_client.get(anime_calendar_ical_url(username))
-    try:
-        response.raise_for_status()
-    except httpx.HTTPStatusError as e:
-        raise AnimeCalendarError(e.response) from e
-    return response.text
 
 
 def normalize_episode_window(hours: int) -> int:
@@ -186,10 +145,24 @@ def register_tools(mcp: FastMCP):
             raise ValueError("No valid MyAnimeList access token available")
         return access_token
 
-    async def own_user_name(access_token: str) -> str:
-        # Anime Calendar feeds are per MAL user name.
-        profile = await client().get_authed("/users/@me", access_token)
-        return profile["name"]
+    async def own_anime_list(
+        access_token: str, status: AnimeStatus
+    ) -> list[dict]:
+        # Fields the episode schedule tools need; MAL always adds id, title.
+        fields = _with_list_status(
+            build_fields([AnimeFields.NUM_EPISODES, AnimeFields.STATUS], [])
+        )
+        response = await client().get_authed(
+            "/users/@me/animelist",
+            access_token,
+            params={
+                "status": status,
+                "limit": 1000,
+                "offset": 0,
+                "fields": fields,
+            },
+        )
+        return response.get("data", []) if isinstance(response, dict) else []
 
     # Anime
     @mcp.tool(annotations=READ_ONLY)
@@ -691,56 +664,35 @@ def register_tools(mcp: FastMCP):
 
     @mcp.tool(annotations=READ_ONLY)
     async def get_upcoming_anime_episodes(hours: int = 36) -> dict:
-        """Fetch the authenticated user's upcoming episode releases from their anime-calendar.com iCal feed."""
+        """Fetch upcoming episode air times for the authenticated user's 'watching' and 'plan to watch' anime, from AniList.
+
+        Times are the original (Japanese) broadcast, not streaming releases."""
         try:
-            username = await own_user_name(await token())
-            hours = normalize_episode_window(hours)
-            calendar = await fetch_anime_calendar(username)
-            return {
-                "username": username,
-                "hours": hours,
-                "digest": upcoming_events_digest(calendar, hours=hours),
-            }
-        except AnimeCalendarError as e:
+            access_token = await token()
+            anime = [
+                *await own_anime_list(access_token, AnimeStatus.WATCHING),
+                *await own_anime_list(access_token, AnimeStatus.PLANNING),
+            ]
+            schedules = await fetch_upcoming_episodes(airing_ids(anime))
+            return upcoming_episodes(
+                anime, schedules, hours=normalize_episode_window(hours)
+            )
+        except AniListError as e:
             return e.payload()
         except _TOOL_ERRORS as e:
             return api_error_payload(e)
 
     @mcp.tool(annotations=READ_ONLY)
     async def get_watch_queue() -> dict:
-        """Build a watch queue digest from the authenticated user's 'watching' anime list and Anime Calendar iCal data.
+        """Build a watch queue digest from the authenticated user's 'watching' anime list and AniList airing schedules.
 
-        Returns per-anime watched episode counts against latest released episodes (from calendar or total episode metadata)
-        plus aggregate totals. Latest released is unknown for titles that are neither finished nor found in the calendar feed."""
+        Returns per-anime watched episode counts against latest released episodes (from AniList or total episode metadata)
+        plus aggregate totals. Latest released is unknown for titles that are neither finished nor scheduled on AniList."""
         try:
-            access_token = await token()
-            username = await own_user_name(access_token)
-            list_fields = _with_list_status(
-                build_fields(
-                    [AnimeFields.NUM_EPISODES, AnimeFields.STATUS], []
-                )
-            )
-            list_params = {
-                "status": "watching",
-                "limit": 1000,
-                "offset": 0,
-                "fields": list_fields,
-            }
-            list_response = await client().get_authed(
-                "/users/@me/animelist", access_token, params=list_params
-            )
-
-            calendar_events = parse_anime_calendar_events(
-                await fetch_anime_calendar(username)
-            )
-
-            raw_data = (
-                list_response.get("data", [])
-                if isinstance(list_response, dict)
-                else []
-            )
-            return build_watch_queue(raw_data, calendar_events)
-        except AnimeCalendarError as e:
+            anime = await own_anime_list(await token(), AnimeStatus.WATCHING)
+            schedules = await fetch_upcoming_episodes(airing_ids(anime))
+            return build_watch_queue(anime, schedules)
+        except AniListError as e:
             return e.payload()
         except _TOOL_ERRORS as e:
             return api_error_payload(e)

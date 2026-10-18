@@ -19,11 +19,11 @@
         "mean": 6.52
       },
       "list_status": {
-        "status": "dropped",
-        "score": 3,
-        "num_episodes_watched": 19,
+        "status": "on_hold",
+        "score": 6,
+        "num_episodes_watched": 2,
         "is_rewatching": false,
-        "updated_at": "2021-10-30T22:43:42+00:00"
+        "updated_at": "2024-01-19T00:00:38+00:00"
       }
     },
     {
@@ -45,11 +45,11 @@
         "mean": 6.79
       },
       "list_status": {
-        "status": "on_hold",
-        "score": 6,
-        "num_episodes_watched": 2,
+        "status": "completed",
+        "score": 3,
+        "num_episodes_watched": 13,
         "is_rewatching": false,
-        "updated_at": "2015-04-25T09:26:01+00:00"
+        "updated_at": "2023-09-05T12:10:19+00:00"
       }
     },
     {
@@ -72,11 +72,11 @@
         "mean": 6.58
       },
       "list_status": {
-        "status": "completed",
-        "score": 3,
-        "num_episodes_watched": 13,
+        "status": "watching",
+        "score": 5,
+        "num_episodes_watched": 24,
         "is_rewatching": false,
-        "updated_at": "2013-10-05T10:57:37+00:00"
+        "updated_at": "2025-05-25T10:24:46+00:00"
       }
     }
   ],

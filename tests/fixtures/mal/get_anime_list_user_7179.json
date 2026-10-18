@@ -21,11 +21,11 @@
         "mean": 6.85
       },
       "list_status": {
-        "status": "on_hold",
-        "score": 9,
-        "num_episodes_watched": 24,
+        "status": "watching",
+        "score": 8,
+        "num_episodes_watched": 19,
         "is_rewatching": false,
-        "updated_at": "2010-08-25T19:14:13+00:00"
+        "updated_at": "2025-11-06T15:56:15+00:00"
       }
     },
     {
@@ -49,10 +49,10 @@
       },
       "list_status": {
         "status": "watching",
-        "score": 8,
-        "num_episodes_watched": 19,
+        "score": 9,
+        "num_episodes_watched": 2,
         "is_rewatching": false,
-        "updated_at": "2022-11-06T05:10:38+00:00"
+        "updated_at": "2021-09-24T19:49:30+00:00"
       }
     },
     {
@@ -75,15 +75,15 @@
         "mean": 7.31
       },
       "list_status": {
-        "status": "watching",
+        "status": "completed",
         "score": 9,
-        "num_episodes_watched": 2,
+        "num_episodes_watched": 6,
         "is_rewatching": false,
-        "updated_at": "2005-08-14T19:06:19+00:00"
+        "updated_at": "2024-05-12T07:00:58+00:00"
       }
     }
   ],
   "paging": {
-    "next": "https://api.myanimelist.net/v2/users/user_2569/animelist?offset=3&limit=3&fields=id%2Ctitle%2Calternative_titles%2Cmain_picture%2Cnsfw%2Cmean%2Clist_status"
+    "next": "https://api.myanimelist.net/v2/users/user_7179/animelist?offset=3&limit=3&fields=id%2Ctitle%2Calternative_titles%2Cmain_picture%2Cnsfw%2Cmean%2Clist_status"
   }
 }

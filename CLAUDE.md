@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-MCP server (FastMCP 4, stdio) exposing the MyAnimeList API v2 as tools, plus helpers for OAuth, an Anime Calendar episode digest, a watch queue and MAL news. See README.md for configuration (`.env`, `MAL_*` variables) and the tool list.
+MCP server (FastMCP 4, stdio) exposing the MyAnimeList API v2 as tools, plus helpers for OAuth, an upcoming episode digest and a watch queue (air times from AniList) and MAL news. See README.md for configuration (`.env`, `MAL_*` variables) and the tool list.
 
 ## Commands
 
@@ -40,7 +40,8 @@ uv run python scripts/anonymize_fixtures.py  # regenerate tests/fixtures/mal/
 - `utils/mal_client.py` `MALClient.request`: sends `X-MAL-CLIENT-ID` for public calls and `Authorization: Bearer` for authed ones, paces requests (`MAL_RATE_LIMIT_DELAY`), turns 204/empty/`null`/`[]` bodies into `{"ok": True}`, and raises `MALAPIError` for 200 bodies that contain `error`.
 - `utils/auth.py`: OAuth with PKCE. `login_initiate` starts a one-shot local callback server as a task on the running event loop (it raises without one) and verifies `state`. Tokens refresh silently under a lock; `get_mal_access_token` raises `MALAuthError` when no token is usable. `load_dotenv()` runs at import and module-level settings (`CLIENT_ID`, `REDIRECT_URI`, ...) are copied from the environment at import time.
 - `utils/token_store.py`: JSON token file with `0600` permissions at `MAL_TOKEN_STORAGE_PATH`, else `$HERMES_HOME/secrets/mal_tokens.json` (`~/.hermes` by default).
-- `utils/episodes.py`: Anime Calendar iCal parsing (RFC 5545 text escapes), `upcoming_events_digest`, and `build_watch_queue`, which combines the `watching` list with calendar events.
+- `utils/anilist.py`: `fetch_upcoming_episodes` asks AniList's public GraphQL API for the not yet aired episodes of MAL ids (`idMal_in`, `type: ANIME`, pages of 50) and raises `AniListError` (returned by the tools via `payload()`) for HTTP or GraphQL errors.
+- `utils/episodes.py`: `airing_ids` (titles worth asking AniList about), `upcoming_episodes` (digest for the `watching` and `plan_to_watch` lists) and `build_watch_queue` (the `watching` list against the next scheduled episode).
 
 ## MAL API behaviour (verified against the live API)
 
@@ -57,6 +58,6 @@ The official docs are wrong or silent on several of these:
 
 - `tests/conftest.py` has an autouse fixture that removes all `MAL_*` variables, resets the import-time settings in `utils.auth`, points `HERMES_HOME` at a temp dir and blocks real HTTP through `httpx.AsyncClient`, so `.env` and the real token file never leak into tests (`tests/test_isolation.py` guards this).
 - The `mal` fixture registers the tools against a mock client: `mal.client` (the `AsyncMock` with `get_public`, `get_authed`, `patch_authed`, `delete_authed`), `mal.call(name, **kwargs)` (calls the function directly and skips argument validation), and `mal.call_over_mcp(name, arguments)` (through an in-memory FastMCP client; use it to test validation and serialisation).
-- `tests/fixtures/mal/` holds anonymised recordings of real responses. They are generated, never hand-edited: real captures go into the git-ignored `tests/tool_responses/` (`NN_<tool>[_<suffix>].json`, plus raw `.ics`/`.xml`/list inputs of derived tools) and `scripts/anonymize_fixtures.py` writes the fixtures, failing if any real value survives. New tools need an anonymisation rule (`HANDLERS`, `PASSTHROUGH` or `RAW_INPUTS`), or the script refuses to run. Subdirectories of `tests/tool_responses/` are ignored by the script.
+- `tests/fixtures/mal/` holds anonymised recordings of real responses. They are generated, never hand-edited: real captures go into the git-ignored `tests/tool_responses/` (`NN_<tool>[_<suffix>].json`, plus raw list, AniList and `.xml` inputs of derived tools) and `scripts/anonymize_fixtures.py` writes the fixtures, failing if any real value survives. New tools need an anonymisation rule (`HANDLERS`, `PASSTHROUGH` or `RAW_INPUTS`), or the script refuses to run. Subdirectories of `tests/tool_responses/` are ignored by the script.
 - `tests/fixtures/mal_docs/` holds the update samples from MAL's documentation and the recorded delete and 404 bodies; list-changing tools are not recorded routinely because that changes the user's list.
-- `tests/test_recorded_responses.py` freezes time at the calendar's `DTSTAMP` to rebuild the watch queue and episode digest from recorded inputs.
+- `tests/test_recorded_responses.py` rebuilds the watch queue and episode digest from recorded inputs, freezing time at the digest's recorded `from`.

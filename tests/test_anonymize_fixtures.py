@@ -1,6 +1,5 @@
 import json
 import math
-import uuid
 from datetime import UTC, date, datetime, timedelta
 
 import pytest
@@ -345,63 +344,50 @@ def test_user_list_items_get_fake_list_status():
     assert second == {"node": {"id": 2}}
 
 
-def test_upcoming_episodes_username_is_replaced():
-    doc = {"username": "RealPerson", "hours": 36, "digest": "No episodes."}
-
-    out = anonymize(
-        {"11_get_upcoming_anime_episodes.json": doc}, Anonymizer()
-    )["get_upcoming_anime_episodes.json"]
-
-    assert out["username"] != "RealPerson"
-    assert out["digest"] == "No episodes."
-
-
-CALENDAR = (
-    "BEGIN:VCALENDAR\r\n"
-    "UID:11111111-1111-4111-8111-111111111111\r\n"
-    "BEGIN:VEVENT\r\n"
-    "DTSTART:20261018T120000Z\r\n"
-    "SUMMARY:[sub] Show (3)\r\n"
-    "UID:22222222-2222-4222-8222-222222222222\r\n"
-    "END:VEVENT\r\n"
-    "END:VCALENDAR\r\n"
-)
-
-
-def test_calendar_uids_are_replaced_consistently_and_nothing_else_changes():
-    out = anonymize(
-        {
-            "11_get_upcoming_anime_episodes_calendar.ics": CALENDAR,
-            "12_get_watch_queue_calendar.ics": CALENDAR,
-        },
-        Anonymizer(),
-    )
-
-    first = out["get_upcoming_anime_episodes_calendar.ics"]
-    assert first == out["get_watch_queue_calendar.ics"]
-    real, fake = CALENDAR.split("\r\n"), first.split("\r\n")
-    for real_line, fake_line in zip(real, fake, strict=True):
-        if real_line.startswith("UID:"):
-            uid = fake_line.removeprefix("UID:")
-            assert str(uuid.UUID(uid)) == uid
-            assert fake_line != real_line
-        else:
-            assert fake_line == real_line
-
-
-def test_watch_queue_output_follows_the_anonymised_list():
-    real_list = {
+def _status_list(status):
+    return {
         "data": [
             {
                 "node": {"id": 7, "title": "Show", "num_episodes": 12},
                 "list_status": {
-                    "status": "watching",
+                    "status": status,
                     "num_episodes_watched": 1,
                     "updated_at": "2020-01-01T00:00:00+00:00",
                 },
             }
         ]
     }
+
+
+def test_upcoming_episode_lists_keep_their_status_and_schedules_are_copied():
+    output = {"hours": 36, "from": "2026-10-18T12:00:00Z", "digest": "-"}
+    schedules = [{"data": {"Page": {"media": []}}}]
+
+    out = anonymize(
+        {
+            "11_get_upcoming_anime_episodes.json": output,
+            "11_get_upcoming_anime_episodes_anilist.json": schedules,
+            "11_get_upcoming_anime_episodes_watching.json": _status_list(
+                "watching"
+            ),
+            "11_get_upcoming_anime_episodes_plan_to_watch.json": (
+                _status_list("plan_to_watch")
+            ),
+        },
+        Anonymizer(),
+    )
+
+    assert out["get_upcoming_anime_episodes.json"] == output
+    assert out["get_upcoming_anime_episodes_anilist.json"] == schedules
+    for status in ("watching", "plan_to_watch"):
+        name = f"get_upcoming_anime_episodes_{status}.json"
+        list_status = out[name]["data"][0]["list_status"]
+        assert list_status["status"] == status
+        assert list_status["updated_at"] != "2020-01-01T00:00:00+00:00"
+
+
+def test_watch_queue_output_follows_the_anonymised_list():
+    real_list = _status_list("watching")
     output = {
         "entries": [
             {
@@ -452,8 +438,8 @@ def test_rss_is_copied_unchanged_and_keeps_its_extension():
     ("file_name", "expected"),
     [
         (
-            "11_get_upcoming_anime_episodes_calendar.ics",
-            ("get_upcoming_anime_episodes", "calendar"),
+            "11_get_upcoming_anime_episodes_plan_to_watch.json",
+            ("get_upcoming_anime_episodes", "plan_to_watch"),
         ),
         ("21_get_mal_news_rss.xml", ("get_mal_news", "rss")),
     ],
@@ -464,10 +450,10 @@ def test_split_name_handles_raw_input_extensions(file_name, expected):
 
 def test_leak_check_covers_text_files():
     a = Anonymizer()
-    a.secret("real-calendar-uid", "calendar UID")
+    a.secret("real-user-name", "user name")
 
-    with pytest.raises(LeakError, match="calendar UID"):
-        check_for_leaks({"x.ics": "UID:real-calendar-uid\n"}, a)
+    with pytest.raises(LeakError, match="user name"):
+        check_for_leaks({"x.xml": "<name>real-user-name</name>\n"}, a)
 
 
 def test_main_reads_and_writes_text_inputs(tmp_path):
@@ -475,24 +461,14 @@ def test_main_reads_and_writes_text_inputs(tmp_path):
     target = tmp_path / "fixtures"
     source.mkdir()
     target.mkdir()
-    (target / "stale.ics").write_text("old")
+    (target / "stale.xml").write_text("old")
     (target / "notes.txt").write_text("not a fixture")
-    (source / "11_get_upcoming_anime_episodes_calendar.ics").write_text(
-        CALENDAR
-    )
     (source / "21_get_mal_news_rss.xml").write_text("<rss/>\n")
 
     main(source, target)
 
     assert sorted(p.name for p in target.iterdir()) == [
         "get_mal_news_rss.xml",
-        "get_upcoming_anime_episodes_calendar.ics",
         "notes.txt",
     ]
     assert (target / "get_mal_news_rss.xml").read_text() == "<rss/>\n"
-    assert (
-        "11111111-1111"
-        not in (
-            target / "get_upcoming_anime_episodes_calendar.ics"
-        ).read_text()
-    )
