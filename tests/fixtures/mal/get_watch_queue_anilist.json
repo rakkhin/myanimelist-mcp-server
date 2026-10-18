@@ -1,0 +1,764 @@
+[
+  {
+    "data": {
+      "Page": {
+        "media": [
+          {
+            "idMal": 52480,
+            "airingSchedule": {
+              "nodes": [
+                {
+                  "episode": 3,
+                  "airingAt": 1792585800
+                },
+                {
+                  "episode": 4,
+                  "airingAt": 1793190600
+                },
+                {
+                  "episode": 5,
+                  "airingAt": 1793795400
+                },
+                {
+                  "episode": 6,
+                  "airingAt": 1794400200
+                },
+                {
+                  "episode": 7,
+                  "airingAt": 1795005000
+                },
+                {
+                  "episode": 8,
+                  "airingAt": 1795609800
+                },
+                {
+                  "episode": 9,
+                  "airingAt": 1796214600
+                },
+                {
+                  "episode": 10,
+                  "airingAt": 1796819400
+                },
+                {
+                  "episode": 11,
+                  "airingAt": 1797424200
+                },
+                {
+                  "episode": 12,
+                  "airingAt": 1798029000
+                },
+                {
+                  "episode": 13,
+                  "airingAt": 1798633800
+                }
+              ]
+            }
+          },
+          {
+            "idMal": 53913,
+            "airingSchedule": {
+              "nodes": [
+                {
+                  "episode": 4,
+                  "airingAt": 1792596600
+                },
+                {
+                  "episode": 5,
+                  "airingAt": 1793201400
+                },
+                {
+                  "episode": 6,
+                  "airingAt": 1793806200
+                },
+                {
+                  "episode": 7,
+                  "airingAt": 1794411000
+                },
+                {
+                  "episode": 8,
+                  "airingAt": 1795015800
+                },
+                {
+                  "episode": 9,
+                  "airingAt": 1795620600
+                },
+                {
+                  "episode": 10,
+                  "airingAt": 1796225400
+                },
+                {
+                  "episode": 11,
+                  "airingAt": 1796830200
+                },
+                {
+                  "episode": 12,
+                  "airingAt": 1797435000
+                }
+              ]
+            }
+          },
+          {
+            "idMal": 57612,
+            "airingSchedule": {
+              "nodes": [
+                {
+                  "episode": 3,
+                  "airingAt": 1792597500
+                },
+                {
+                  "episode": 4,
+                  "airingAt": 1793202300
+                },
+                {
+                  "episode": 5,
+                  "airingAt": 1793807100
+                },
+                {
+                  "episode": 6,
+                  "airingAt": 1794411900
+                },
+                {
+                  "episode": 7,
+                  "airingAt": 1795016700
+                },
+                {
+                  "episode": 8,
+                  "airingAt": 1795621500
+                },
+                {
+                  "episode": 9,
+                  "airingAt": 1796226300
+                },
+                {
+                  "episode": 10,
+                  "airingAt": 1796831100
+                },
+                {
+                  "episode": 11,
+                  "airingAt": 1797435900
+                },
+                {
+                  "episode": 12,
+                  "airingAt": 1798040700
+                }
+              ]
+            }
+          },
+          {
+            "idMal": 59088,
+            "airingSchedule": {
+              "nodes": [
+                {
+                  "episode": 4,
+                  "airingAt": 1792774380
+                },
+                {
+                  "episode": 5,
+                  "airingAt": 1793379180
+                },
+                {
+                  "episode": 6,
+                  "airingAt": 1793983980
+                },
+                {
+                  "episode": 7,
+                  "airingAt": 1794588780
+                },
+                {
+                  "episode": 8,
+                  "airingAt": 1795193580
+                },
+                {
+                  "episode": 9,
+                  "airingAt": 1795798380
+                },
+                {
+                  "episode": 10,
+                  "airingAt": 1796403180
+                },
+                {
+                  "episode": 11,
+                  "airingAt": 1797007980
+                },
+                {
+                  "episode": 12,
+                  "airingAt": 1797612780
+                }
+              ]
+            }
+          },
+          {
+            "idMal": 59741,
+            "airingSchedule": {
+              "nodes": [
+                {
+                  "episode": 17,
+                  "airingAt": 1792682760
+                },
+                {
+                  "episode": 18,
+                  "airingAt": 1793287560
+                },
+                {
+                  "episode": 19,
+                  "airingAt": 1793892360
+                },
+                {
+                  "episode": 20,
+                  "airingAt": 1794497160
+                },
+                {
+                  "episode": 21,
+                  "airingAt": 1795101960
+                },
+                {
+                  "episode": 22,
+                  "airingAt": 1795706760
+                },
+                {
+                  "episode": 23,
+                  "airingAt": 1796311560
+                },
+                {
+                  "episode": 24,
+                  "airingAt": 1796916360
+                },
+                {
+                  "episode": 25,
+                  "airingAt": 1797521160
+                },
+                {
+                  "episode": 26,
+                  "airingAt": 1798125960
+                }
+              ]
+            }
+          },
+          {
+            "idMal": 59787,
+            "airingSchedule": {
+              "nodes": [
+                {
+                  "episode": 4,
+                  "airingAt": 1792843200
+                },
+                {
+                  "episode": 5,
+                  "airingAt": 1793448000
+                },
+                {
+                  "episode": 6,
+                  "airingAt": 1794052800
+                },
+                {
+                  "episode": 7,
+                  "airingAt": 1794657600
+                },
+                {
+                  "episode": 8,
+                  "airingAt": 1795262400
+                },
+                {
+                  "episode": 9,
+                  "airingAt": 1795867200
+                },
+                {
+                  "episode": 10,
+                  "airingAt": 1796472000
+                },
+                {
+                  "episode": 11,
+                  "airingAt": 1797076800
+                },
+                {
+                  "episode": 12,
+                  "airingAt": 1797681600
+                },
+                {
+                  "episode": 13,
+                  "airingAt": 1798286400
+                },
+                {
+                  "episode": 14,
+                  "airingAt": 1798891200
+                },
+                {
+                  "episode": 15,
+                  "airingAt": 1799496000
+                },
+                {
+                  "episode": 16,
+                  "airingAt": 1800100800
+                },
+                {
+                  "episode": 17,
+                  "airingAt": 1800705600
+                },
+                {
+                  "episode": 18,
+                  "airingAt": 1801310400
+                },
+                {
+                  "episode": 19,
+                  "airingAt": 1801915200
+                },
+                {
+                  "episode": 20,
+                  "airingAt": 1802520000
+                },
+                {
+                  "episode": 21,
+                  "airingAt": 1803124800
+                },
+                {
+                  "episode": 22,
+                  "airingAt": 1803729600
+                },
+                {
+                  "episode": 23,
+                  "airingAt": 1804334400
+                },
+                {
+                  "episode": 24,
+                  "airingAt": 1804939200
+                }
+              ]
+            }
+          },
+          {
+            "idMal": 60601,
+            "airingSchedule": {
+              "nodes": [
+                {
+                  "episode": 5,
+                  "airingAt": 1792938600
+                },
+                {
+                  "episode": 6,
+                  "airingAt": 1793543400
+                },
+                {
+                  "episode": 7,
+                  "airingAt": 1794148200
+                },
+                {
+                  "episode": 8,
+                  "airingAt": 1794753000
+                },
+                {
+                  "episode": 9,
+                  "airingAt": 1795357800
+                },
+                {
+                  "episode": 10,
+                  "airingAt": 1795962600
+                },
+                {
+                  "episode": 11,
+                  "airingAt": 1796567400
+                },
+                {
+                  "episode": 12,
+                  "airingAt": 1797172200
+                }
+              ]
+            }
+          },
+          {
+            "idMal": 61469,
+            "airingSchedule": {
+              "nodes": []
+            }
+          },
+          {
+            "idMal": 61987,
+            "airingSchedule": {
+              "nodes": [
+                {
+                  "episode": 4,
+                  "airingAt": 1792764000
+                },
+                {
+                  "episode": 5,
+                  "airingAt": 1793368800
+                },
+                {
+                  "episode": 6,
+                  "airingAt": 1793973600
+                },
+                {
+                  "episode": 7,
+                  "airingAt": 1794578400
+                },
+                {
+                  "episode": 8,
+                  "airingAt": 1795183200
+                },
+                {
+                  "episode": 9,
+                  "airingAt": 1795788000
+                },
+                {
+                  "episode": 10,
+                  "airingAt": 1796392800
+                },
+                {
+                  "episode": 11,
+                  "airingAt": 1796997600
+                },
+                {
+                  "episode": 12,
+                  "airingAt": 1797602400
+                }
+              ]
+            }
+          },
+          {
+            "idMal": 61967,
+            "airingSchedule": {
+              "nodes": [
+                {
+                  "episode": 4,
+                  "airingAt": 1792850400
+                },
+                {
+                  "episode": 5,
+                  "airingAt": 1793455200
+                },
+                {
+                  "episode": 6,
+                  "airingAt": 1794060000
+                },
+                {
+                  "episode": 7,
+                  "airingAt": 1794664800
+                },
+                {
+                  "episode": 8,
+                  "airingAt": 1795269600
+                },
+                {
+                  "episode": 9,
+                  "airingAt": 1795874400
+                },
+                {
+                  "episode": 10,
+                  "airingAt": 1796479200
+                },
+                {
+                  "episode": 11,
+                  "airingAt": 1797084000
+                },
+                {
+                  "episode": 12,
+                  "airingAt": 1797688800
+                }
+              ]
+            }
+          },
+          {
+            "idMal": 62590,
+            "airingSchedule": {
+              "nodes": [
+                {
+                  "episode": 3,
+                  "airingAt": 1792334700
+                },
+                {
+                  "episode": 4,
+                  "airingAt": 1792939500
+                },
+                {
+                  "episode": 5,
+                  "airingAt": 1793544300
+                },
+                {
+                  "episode": 6,
+                  "airingAt": 1794149100
+                },
+                {
+                  "episode": 7,
+                  "airingAt": 1794753900
+                },
+                {
+                  "episode": 8,
+                  "airingAt": 1795358700
+                },
+                {
+                  "episode": 9,
+                  "airingAt": 1795963500
+                },
+                {
+                  "episode": 10,
+                  "airingAt": 1796568300
+                },
+                {
+                  "episode": 11,
+                  "airingAt": 1797173100
+                },
+                {
+                  "episode": 12,
+                  "airingAt": 1797777900
+                },
+                {
+                  "episode": 13,
+                  "airingAt": 1798382700
+                }
+              ]
+            }
+          },
+          {
+            "idMal": 63098,
+            "airingSchedule": {
+              "nodes": [
+                {
+                  "episode": 3,
+                  "airingAt": 1792418400
+                },
+                {
+                  "episode": 4,
+                  "airingAt": 1793023200
+                },
+                {
+                  "episode": 5,
+                  "airingAt": 1793628000
+                },
+                {
+                  "episode": 6,
+                  "airingAt": 1794232800
+                },
+                {
+                  "episode": 7,
+                  "airingAt": 1794837600
+                },
+                {
+                  "episode": 8,
+                  "airingAt": 1795442400
+                },
+                {
+                  "episode": 9,
+                  "airingAt": 1796047200
+                },
+                {
+                  "episode": 10,
+                  "airingAt": 1796652000
+                },
+                {
+                  "episode": 11,
+                  "airingAt": 1797256800
+                },
+                {
+                  "episode": 12,
+                  "airingAt": 1797861600
+                }
+              ]
+            }
+          },
+          {
+            "idMal": 63140,
+            "airingSchedule": {
+              "nodes": [
+                {
+                  "episode": 5,
+                  "airingAt": 1792848600
+                },
+                {
+                  "episode": 6,
+                  "airingAt": 1793453400
+                },
+                {
+                  "episode": 7,
+                  "airingAt": 1794058200
+                },
+                {
+                  "episode": 8,
+                  "airingAt": 1794663000
+                },
+                {
+                  "episode": 9,
+                  "airingAt": 1795267800
+                },
+                {
+                  "episode": 10,
+                  "airingAt": 1795872600
+                },
+                {
+                  "episode": 11,
+                  "airingAt": 1796477400
+                },
+                {
+                  "episode": 12,
+                  "airingAt": 1797082200
+                }
+              ]
+            }
+          },
+          {
+            "idMal": 63382,
+            "airingSchedule": {
+              "nodes": [
+                {
+                  "episode": 3,
+                  "airingAt": 1792499160
+                },
+                {
+                  "episode": 4,
+                  "airingAt": 1793103960
+                },
+                {
+                  "episode": 5,
+                  "airingAt": 1793708760
+                },
+                {
+                  "episode": 6,
+                  "airingAt": 1794313560
+                },
+                {
+                  "episode": 7,
+                  "airingAt": 1794918360
+                },
+                {
+                  "episode": 8,
+                  "airingAt": 1795523160
+                },
+                {
+                  "episode": 9,
+                  "airingAt": 1796127960
+                },
+                {
+                  "episode": 10,
+                  "airingAt": 1796732760
+                },
+                {
+                  "episode": 11,
+                  "airingAt": 1797337560
+                },
+                {
+                  "episode": 12,
+                  "airingAt": 1797942360
+                }
+              ]
+            }
+          },
+          {
+            "idMal": 63712,
+            "airingSchedule": {
+              "nodes": [
+                {
+                  "episode": 4,
+                  "airingAt": 1792414800
+                },
+                {
+                  "episode": 5,
+                  "airingAt": 1793019600
+                },
+                {
+                  "episode": 6,
+                  "airingAt": 1793624400
+                },
+                {
+                  "episode": 7,
+                  "airingAt": 1794229200
+                },
+                {
+                  "episode": 8,
+                  "airingAt": 1794834000
+                },
+                {
+                  "episode": 9,
+                  "airingAt": 1795438800
+                },
+                {
+                  "episode": 10,
+                  "airingAt": 1796043600
+                },
+                {
+                  "episode": 11,
+                  "airingAt": 1796648400
+                },
+                {
+                  "episode": 12,
+                  "airingAt": 1797253200
+                }
+              ]
+            }
+          },
+          {
+            "idMal": 61469,
+            "airingSchedule": {
+              "nodes": [
+                {
+                  "episode": 5,
+                  "airingAt": 1792742400
+                },
+                {
+                  "episode": 6,
+                  "airingAt": 1793347200
+                },
+                {
+                  "episode": 7,
+                  "airingAt": 1793952000
+                },
+                {
+                  "episode": 8,
+                  "airingAt": 1794556800
+                },
+                {
+                  "episode": 9,
+                  "airingAt": 1795161600
+                },
+                {
+                  "episode": 10,
+                  "airingAt": 1795766400
+                },
+                {
+                  "episode": 11,
+                  "airingAt": 1796371200
+                }
+              ]
+            }
+          },
+          {
+            "idMal": 64340,
+            "airingSchedule": {
+              "nodes": [
+                {
+                  "episode": 5,
+                  "airingAt": 1792938600
+                },
+                {
+                  "episode": 6,
+                  "airingAt": 1793543400
+                },
+                {
+                  "episode": 7,
+                  "airingAt": 1794148200
+                },
+                {
+                  "episode": 8,
+                  "airingAt": 1794753000
+                },
+                {
+                  "episode": 9,
+                  "airingAt": 1795357800
+                },
+                {
+                  "episode": 10,
+                  "airingAt": 1795962600
+                },
+                {
+                  "episode": 11,
+                  "airingAt": 1796567400
+                },
+                {
+                  "episode": 12,
+                  "airingAt": 1797172200
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  }
+]

@@ -17,12 +17,12 @@
         "mean": 7.22
       },
       "list_status": {
-        "status": "completed",
+        "status": "reading",
         "is_rereading": false,
         "num_volumes_read": 19,
-        "num_chapters_read": 158,
-        "score": 0,
-        "updated_at": "2024-12-03T12:45:34+00:00"
+        "num_chapters_read": 145,
+        "score": 5,
+        "updated_at": "2020-11-28T08:43:23+00:00"
       }
     },
     {
@@ -50,7 +50,7 @@
         "num_volumes_read": 0,
         "num_chapters_read": 0,
         "score": 0,
-        "updated_at": "2023-05-03T06:43:16+00:00"
+        "updated_at": "2022-05-07T19:15:50+00:00"
       }
     },
     {
@@ -74,16 +74,16 @@
         "mean": 8.03
       },
       "list_status": {
-        "status": "plan_to_read",
+        "status": "completed",
         "is_rereading": false,
-        "num_volumes_read": 0,
-        "num_chapters_read": 0,
-        "score": 0,
-        "updated_at": "2021-04-01T02:33:47+00:00"
+        "num_volumes_read": 18,
+        "num_chapters_read": 107,
+        "score": 9,
+        "updated_at": "2026-05-04T04:00:49+00:00"
       }
     }
   ],
   "paging": {
-    "next": "https://api.myanimelist.net/v2/users/user_2569/mangalist?offset=3&limit=3&fields=id%2Ctitle%2Calternative_titles%2Cmain_picture%2Cnsfw%2Cmean%2Clist_status"
+    "next": "https://api.myanimelist.net/v2/users/user_7179/mangalist?offset=3&limit=3&fields=id%2Ctitle%2Calternative_titles%2Cmain_picture%2Cnsfw%2Cmean%2Clist_status"
   }
 }

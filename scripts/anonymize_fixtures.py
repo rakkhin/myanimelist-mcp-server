@@ -3,7 +3,7 @@
 Reads real responses from the git-ignored tests/tool_responses/ and writes
 fixtures without personal data to tests/fixtures/mal/. Files are named
 NN_<tool>[_<suffix>].json for tool output, and NN_<tool>_<input>.<ext> for
-the raw iCal, list and RSS responses the derived tools receive:
+the raw list, AniList and RSS responses the derived tools receive:
 
     uv run python scripts/anonymize_fixtures.py
 
@@ -18,9 +18,7 @@ from __future__ import annotations
 import copy
 import json
 import random
-import re
 import sys
-import uuid
 from collections.abc import Callable
 from datetime import UTC, date, datetime, time, timedelta
 from pathlib import Path
@@ -43,8 +41,7 @@ LOCATIONS = ("Springfield", "Riverside", "Lakeside", "Greenville")
 GENDERS = ("male", "female")
 _PLANNED = (AnimeStatus.PLANNING, MangaStatus.PLANNING)
 _COMPLETED = (AnimeStatus.COMPLETED, MangaStatus.COMPLETED)
-SOURCE_SUFFIXES = (".json", ".ics", ".xml")
-_UID_LINE = re.compile(r"^UID:(.*?)(\r?)$", re.MULTILINE)
+SOURCE_SUFFIXES = (".json", ".xml")
 # Shorter strings are too likely to occur by chance in public data.
 MIN_SECRET_LENGTH = 4
 
@@ -107,12 +104,6 @@ class Anonymizer:
             return round(REFERENCE_TIME.timestamp() + offset, 6)
 
         return self._fake("token expiry", real, make)
-
-    def calendar_uid(self, real: str) -> str:
-        def make() -> str:
-            return str(uuid.UUID(int=self.rng.getrandbits(128), version=4))
-
-        return self._fake("calendar UID", real, make)
 
     def moment_between(self, start: datetime, end: datetime) -> datetime:
         seconds = self.rng.uniform(0, (end - start).total_seconds())
@@ -256,10 +247,6 @@ def _user_list(kind: str) -> Callable[[Document, Anonymizer], None]:
     return handle
 
 
-def _upcoming_episodes(doc: Document, a: Anonymizer) -> None:
-    doc["username"] = a.user_name(doc["username"])
-
-
 def _watch_queue(doc: Document, a: Anonymizer) -> None:
     # Same rules as utils.episodes.build_watch_queue.
     for entry in doc["entries"]:
@@ -318,22 +305,21 @@ def _forum_topic(doc: Document, a: Anonymizer) -> None:
             post["signature"] = PLACEHOLDER_SIGNATURE
 
 
-def _calendar(text: str, a: Anonymizer) -> str:
-    def replace(match: re.Match[str]) -> str:
-        return f"UID:{a.calendar_uid(match.group(1))}{match.group(2)}"
-
-    return _UID_LINE.sub(replace, text)
+def _status_list(doc: Document, a: Anonymizer) -> Document:
+    # The tools request one list status at a time, so the status stays.
+    for item in doc.get("data", []):
+        if "list_status" in item:
+            item["list_status"] = a.list_status(
+                item["list_status"], item.get("node", {}), "anime", True
+            )
+    return doc
 
 
 def _watch_queue_list(doc: Document, a: Anonymizer) -> Document:
-    # The tool requests status=watching only, so the status stays.
+    _status_list(doc, a)
     for item in doc.get("data", []):
-        node = item.get("node", {})
         if "list_status" in item:
-            item["list_status"] = a.list_status(
-                item["list_status"], node, "anime", keep_status=True
-            )
-            a.watched_by_id[node.get("id")] = item["list_status"].get(
+            a.watched_by_id[item["node"]["id"]] = item["list_status"].get(
                 "num_episodes_watched", 0
             )
     return doc
@@ -347,13 +333,13 @@ HANDLERS: dict[str, Callable[[Document, Anonymizer], None]] = {
     "get_anime_list": _user_list("anime"),
     "get_my_manga_list": _user_list("manga"),
     "get_manga_list": _user_list("manga"),
-    "get_upcoming_anime_episodes": _upcoming_episodes,
     "get_watch_queue": _watch_queue,
     "get_forum_topics": _forum_topics,
     "get_forum_topic": _forum_topic,
 }
-# Public catalogue, news and forum board data, copied unchanged.
+# Public catalogue, schedule, news and forum board data, copied unchanged.
 PASSTHROUGH = {
+    "get_upcoming_anime_episodes",
     "get_anime",
     "get_anime_details",
     "get_anime_ranking",
@@ -368,9 +354,11 @@ PASSTHROUGH = {
 # Raw responses the derived tools receive. These handlers return the
 # anonymised content; None copies it unchanged.
 RAW_INPUTS: dict[tuple[str, str], Callable[[Any, Anonymizer], Any] | None] = {
-    ("get_upcoming_anime_episodes", "calendar"): _calendar,
-    ("get_watch_queue", "calendar"): _calendar,
+    ("get_upcoming_anime_episodes", "watching"): _status_list,
+    ("get_upcoming_anime_episodes", "plan_to_watch"): _status_list,
+    ("get_upcoming_anime_episodes", "anilist"): None,
     ("get_watch_queue", "animelist"): _watch_queue_list,
+    ("get_watch_queue", "anilist"): None,
     ("get_mal_news", "rss"): None,
 }
 # Tools whose file name suffix is a MAL user name.

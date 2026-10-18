@@ -1,58 +1,101 @@
 from datetime import UTC, datetime
 
-import pytest
-
-from utils.episodes import (
-    CalendarEpisodeEvent,
-    build_watch_queue,
-    parse_anime_calendar_events,
-    upcoming_events_digest,
-)
+from utils.anilist import AiringEpisode
+from utils.episodes import airing_ids, build_watch_queue, upcoming_episodes
 
 
-def test_parse_anime_calendar_events_extracts_episode_metadata():
-    ical = """BEGIN:VCALENDAR\r
-BEGIN:VEVENT\r
-DTSTART:20260525T133000Z\r
-SUMMARY:[org] Isekai Nonbiri Nouka 2 (8)\r
-DESCRIPTION:Link: https://myanimelist.net/anime/62146\r
-UID:abc@anime-calendar.com\r
-END:VEVENT\r
-END:VCALENDAR\r
-"""
-
-    events = parse_anime_calendar_events(ical)
-
-    assert len(events) == 1
-    assert events[0].title == "Isekai Nonbiri Nouka 2"
-    assert events[0].episode == 8
-    assert events[0].mal_id == 62146
-    assert events[0].stream_type == "org"
-
-
-def test_upcoming_events_digest_filters_to_window():
-    ical = """BEGIN:VCALENDAR\nBEGIN:VEVENT\nDTSTART:20260525T133000Z\nSUMMARY:[sub] Show A (1)\nDESCRIPTION:Link: https://myanimelist.net/anime/1\nEND:VEVENT\nBEGIN:VEVENT\nDTSTART:20260725T133000Z\nSUMMARY:[sub] Show B (9)\nDESCRIPTION:Link: https://myanimelist.net/anime/2\nEND:VEVENT\nEND:VCALENDAR\n"""
-
-    digest = upcoming_events_digest(
-        ical, now_iso="2026-05-24T00:00:00+00:00", hours=72
+def _ep(episode: int, airs_at: str) -> AiringEpisode:
+    return AiringEpisode(
+        episode=episode, airs_at=datetime.fromisoformat(airs_at)
     )
 
-    assert "Show A ep 1" in digest
-    assert "Show B" not in digest
+
+def _item(mal_id, title, status, list_status="watching"):
+    return {
+        "node": {"id": mal_id, "title": title, "status": status},
+        "list_status": {"status": list_status},
+    }
 
 
-def _cevent(mal_id: int, episode: int, starts_at: str) -> CalendarEpisodeEvent:
-    return CalendarEpisodeEvent(
-        title="",
-        episode=episode,
-        starts_at=datetime.fromisoformat(starts_at).replace(tzinfo=UTC),
-        mal_id=mal_id,
-    )
+def test_airing_ids_keep_airing_and_not_yet_aired_titles():
+    data = [
+        _item(1, "Airing", "currently_airing"),
+        _item(2, "Finished", "finished_airing"),
+        _item(3, "Upcoming", "not_yet_aired"),
+        {"node": {"status": "currently_airing"}},
+        {},
+    ]
+
+    assert airing_ids(data) == [1, 3]
+
+
+class TestUpcomingEpisodes:
+    _NOW = datetime(2026, 5, 24, tzinfo=UTC)
+
+    def test_lists_episodes_in_window_by_air_time(self):
+        data = [
+            _item(1, "Show A", "currently_airing"),
+            _item(2, "Show B", "not_yet_aired", "plan_to_watch"),
+        ]
+        schedules = {
+            1: [
+                _ep(4, "2026-05-25T13:30:00+00:00"),
+                _ep(5, "2026-06-01T13:30:00+00:00"),
+            ],
+            2: [_ep(1, "2026-05-24T12:00:00+00:00")],
+        }
+
+        result = upcoming_episodes(data, schedules, hours=72, now=self._NOW)
+
+        assert result == {
+            "hours": 72,
+            "from": "2026-05-24T00:00:00Z",
+            "digest": "Scheduled anime episodes in the next 72 hours:\n"
+            "- Show B ep 1 [plan_to_watch] at 2026-05-24T12:00:00Z — MAL 2\n"
+            "- Show A ep 4 [watching] at 2026-05-25T13:30:00Z — MAL 1",
+        }
+
+    def test_window_includes_both_ends(self):
+        data = [_item(1, "Show", "currently_airing")]
+        schedules = {
+            1: [
+                _ep(1, "2026-05-24T00:00:00+00:00"),
+                _ep(2, "2026-05-25T00:00:00+00:00"),
+                _ep(3, "2026-05-25T00:00:01+00:00"),
+            ]
+        }
+
+        result = upcoming_episodes(data, schedules, hours=24, now=self._NOW)
+
+        assert "ep 1 " in result["digest"]
+        assert "ep 2 " in result["digest"]
+        assert "ep 3 " not in result["digest"]
+
+    def test_reports_empty_window(self):
+        result = upcoming_episodes([], {}, hours=72, now=self._NOW)
+
+        assert result["digest"] == (
+            "No scheduled anime episodes in the next 72 hours."
+        )
+
+    def test_missing_list_status_and_title_are_handled(self):
+        data = [{"node": {"id": 1}}]
+        schedules = {1: [_ep(1, "2026-05-24T01:00:00+00:00")]}
+
+        result = upcoming_episodes(data, schedules, hours=1, now=self._NOW)
+
+        assert result["digest"].endswith(
+            "- Unknown ep 1 at 2026-05-24T01:00:00Z — MAL 1"
+        )
+
+    def test_defaults_to_current_time(self):
+        result = upcoming_episodes([], {}, hours=1)
+
+        started = datetime.fromisoformat(result["from"])
+        assert abs((datetime.now(UTC) - started).total_seconds()) < 60
 
 
 class TestBuildWatchQueue:
-    _NOW = datetime(2026, 7, 20, 0, 0, 0, tzinfo=UTC)
-
     def test_finished_airing_uses_num_episodes(self):
         data = [
             {
@@ -65,7 +108,7 @@ class TestBuildWatchQueue:
                 "list_status": {"num_episodes_watched": 5},
             },
         ]
-        result = build_watch_queue(data, [], now=self._NOW)
+        result = build_watch_queue(data, {})
         assert len(result["entries"]) == 1
         entry = result["entries"][0]
         assert entry["latest_released_count"] == 12
@@ -85,11 +128,11 @@ class TestBuildWatchQueue:
                 "list_status": {"num_episodes_watched": 0},
             },
         ]
-        result = build_watch_queue(data, [], now=self._NOW)
+        result = build_watch_queue(data, {})
         assert result["entries"][0]["latest_released_count"] == 0
         assert result["entries"][0]["unwatched_count"] == 0
 
-    def test_airing_with_calendar_past_events_uses_highest_past(self):
+    def test_airing_uses_the_earliest_upcoming_episode(self):
         data = [
             {
                 "node": {
@@ -101,12 +144,13 @@ class TestBuildWatchQueue:
                 "list_status": {"num_episodes_watched": 3},
             },
         ]
-        events = [
-            _cevent(10, 5, "2026-07-13T00:00:00+00:00"),
-            _cevent(10, 6, "2026-07-19T00:00:00+00:00"),
-            _cevent(10, 7, "2026-07-27T00:00:00+00:00"),
-        ]
-        result = build_watch_queue(data, events, now=self._NOW)
+        schedules = {
+            10: [
+                _ep(7, "2026-07-20T00:00:00+00:00"),
+                _ep(8, "2026-07-27T00:00:00+00:00"),
+            ]
+        }
+        result = build_watch_queue(data, schedules)
         entry = result["entries"][0]
         assert entry["latest_released_count"] == 6
         assert entry["unwatched_count"] == 3
@@ -123,10 +167,8 @@ class TestBuildWatchQueue:
                 "list_status": {"num_episodes_watched": 3},
             },
         ]
-        events = [
-            _cevent(11, 5, "2026-07-27T00:00:00+00:00"),
-        ]
-        result = build_watch_queue(data, events, now=self._NOW)
+        schedules = {11: [_ep(5, "2026-07-27T00:00:00+00:00")]}
+        result = build_watch_queue(data, schedules)
         entry = result["entries"][0]
         assert entry["latest_released_count"] == 4
         assert entry["unwatched_count"] == 1
@@ -143,15 +185,13 @@ class TestBuildWatchQueue:
                 "list_status": {"num_episodes_watched": 0},
             },
         ]
-        events = [
-            _cevent(12, 1, "2026-07-27T00:00:00+00:00"),
-        ]
-        result = build_watch_queue(data, events, now=self._NOW)
+        schedules = {12: [_ep(1, "2026-07-27T00:00:00+00:00")]}
+        result = build_watch_queue(data, schedules)
         entry = result["entries"][0]
         assert entry["latest_released_count"] == 0
         assert entry["unwatched_count"] == 0
 
-    def test_no_calendar_data_yields_unknown_latest(self):
+    def test_no_schedule_yields_unknown_latest(self):
         data = [
             {
                 "node": {
@@ -163,7 +203,7 @@ class TestBuildWatchQueue:
                 "list_status": {"num_episodes_watched": 2},
             },
         ]
-        result = build_watch_queue(data, [], now=self._NOW)
+        result = build_watch_queue(data, {})
         entry = result["entries"][0]
         assert entry["latest_released_count"] is None
         assert entry["unwatched_count"] is None
@@ -189,10 +229,8 @@ class TestBuildWatchQueue:
                 "list_status": {"num_episodes_watched": 2},
             },
         ]
-        events = [
-            _cevent(2, 4, "2026-07-27T00:00:00+00:00"),
-        ]
-        result = build_watch_queue(data, events, now=self._NOW)
+        schedules = {2: [_ep(4, "2026-07-27T00:00:00+00:00")]}
+        result = build_watch_queue(data, schedules)
         agg = result["aggregate"]
         assert agg["total_watching"] == 2
         assert agg["total_watched_episodes"] == 7
@@ -220,7 +258,7 @@ class TestBuildWatchQueue:
                 "list_status": {"num_episodes_watched": 1},
             },
         ]
-        result = build_watch_queue(data, [], now=self._NOW)
+        result = build_watch_queue(data, {})
         agg = result["aggregate"]
         assert agg["total_watching"] == 2
         assert agg["total_watched_episodes"] == 11
@@ -228,7 +266,7 @@ class TestBuildWatchQueue:
         assert agg["total_unknown_latest_count"] == 1
 
     def test_empty_list(self):
-        result = build_watch_queue([], [], now=self._NOW)
+        result = build_watch_queue([], {})
         assert result["entries"] == []
         assert result["aggregate"]["total_watching"] == 0
         assert result["aggregate"]["total_watched_episodes"] == 0
@@ -247,7 +285,7 @@ class TestBuildWatchQueue:
                 "list_status": {"num_episodes_watched": 0},
             },
         ]
-        result = build_watch_queue(data, [], now=self._NOW)
+        result = build_watch_queue(data, {})
         assert result["entries"][0]["latest_released_count"] is None
         assert result["entries"][0]["unwatched_count"] is None
 
@@ -263,7 +301,7 @@ class TestBuildWatchQueue:
                 "list_status": {"num_episodes_watched": 12},
             },
         ]
-        result = build_watch_queue(data, [], now=self._NOW)
+        result = build_watch_queue(data, {})
         assert result["entries"][0]["watched_count"] == 12
         assert result["entries"][0]["latest_released_count"] == 5
         assert result["entries"][0]["unwatched_count"] == 0
@@ -298,7 +336,7 @@ class TestBuildWatchQueue:
                 "list_status": {"num_episodes_watched": 5},
             },
         ]
-        result = build_watch_queue(data, [], now=self._NOW)
+        result = build_watch_queue(data, {})
         titles = [e["title"] for e in result["entries"]]
         assert titles[0] == "B Show"
         assert titles[1] == "A Show"
@@ -316,7 +354,7 @@ class TestBuildWatchQueue:
                 "list_status": {},
             },
         ]
-        result = build_watch_queue(data, [], now=self._NOW)
+        result = build_watch_queue(data, {})
         entry = result["entries"][0]
         assert entry["watched_count"] == 0
         assert entry["latest_released_count"] == 12
@@ -325,195 +363,8 @@ class TestBuildWatchQueue:
         data = [
             {"node": {"id": 0}, "list_status": {"num_episodes_watched": 3}},
         ]
-        result = build_watch_queue(data, [], now=self._NOW)
+        result = build_watch_queue(data, {})
         entry = result["entries"][0]
         assert entry["title"] == "Unknown"
         assert entry["mal_id"] == 0
         assert entry["latest_released_count"] is None
-
-    def test_calendar_event_without_episode_is_skipped(self):
-        data = [
-            {
-                "node": {
-                    "id": 10,
-                    "title": "Airing",
-                    "num_episodes": 0,
-                    "status": "currently_airing",
-                },
-                "list_status": {"num_episodes_watched": 2},
-            },
-        ]
-        events = [
-            CalendarEpisodeEvent(
-                title="",
-                episode=None,
-                starts_at=datetime(2026, 7, 21, 0, 0, 0, tzinfo=UTC),
-                mal_id=10,
-            ),
-            CalendarEpisodeEvent(
-                title="",
-                episode=6,
-                starts_at=datetime(2026, 7, 19, 0, 0, 0, tzinfo=UTC),
-                mal_id=10,
-            ),
-        ]
-        result = build_watch_queue(data, events, now=self._NOW)
-        assert result["entries"][0]["latest_released_count"] == 6
-
-    def test_calendar_event_without_mal_id_not_matched(self):
-        data = [
-            {
-                "node": {
-                    "id": 10,
-                    "title": "Airing",
-                    "num_episodes": 0,
-                    "status": "currently_airing",
-                },
-                "list_status": {"num_episodes_watched": 1},
-            },
-        ]
-        events = [
-            CalendarEpisodeEvent(
-                title="",
-                episode=5,
-                starts_at=datetime(2026, 7, 19, 0, 0, 0, tzinfo=UTC),
-                mal_id=None,
-            ),
-        ]
-        result = build_watch_queue(data, events, now=self._NOW)
-        assert result["entries"][0]["latest_released_count"] is None
-
-    def test_past_calendar_event_at_exact_now_is_counted(self):
-        data = [
-            {
-                "node": {
-                    "id": 10,
-                    "title": "Airing",
-                    "num_episodes": 0,
-                    "status": "currently_airing",
-                },
-                "list_status": {"num_episodes_watched": 1},
-            },
-        ]
-        events = [
-            CalendarEpisodeEvent(
-                title="",
-                episode=4,
-                starts_at=self._NOW,
-                mal_id=10,
-            ),
-        ]
-        result = build_watch_queue(data, events, now=self._NOW)
-        assert result["entries"][0]["latest_released_count"] == 4
-
-
-def _ical(*events: str) -> str:
-    body = "".join(f"BEGIN:VEVENT\n{event}\nEND:VEVENT\n" for event in events)
-    return f"BEGIN:VCALENDAR\n{body}END:VCALENDAR\n"
-
-
-def test_parse_events_treats_floating_dtstart_as_utc():
-    events = parse_anime_calendar_events(
-        _ical("DTSTART:20260525T133000\nSUMMARY:Show (1)")
-    )
-
-    assert events[0].starts_at == datetime(2026, 5, 25, 13, 30, tzinfo=UTC)
-
-
-def test_parse_events_rejects_unsupported_dtstart():
-    with pytest.raises(ValueError, match="Unsupported iCal DTSTART"):
-        parse_anime_calendar_events(
-            _ical("DTSTART:2026-05-25 13:30\nSUMMARY:Show (1)")
-        )
-
-
-def test_parse_events_unfolds_continuation_lines():
-    events = parse_anime_calendar_events(
-        _ical(
-            "DTSTART:20260525T133000Z\n"
-            "SUMMARY:Show (1)\n"
-            "DESCRIPTION:Link: https://myanimelist.net/an\n"
-            " ime/62146"
-        )
-    )
-
-    assert events[0].mal_id == 62146
-
-
-def test_parse_events_skips_events_without_start_or_summary():
-    events = parse_anime_calendar_events(
-        _ical(
-            "SUMMARY:No start (1)",
-            "DTSTART:20260525T133000Z",
-            "DTSTART:20260526T133000Z\nSUMMARY:Kept (2)",
-        )
-    )
-
-    assert [event.title for event in events] == ["Kept"]
-
-
-def test_upcoming_events_digest_treats_naive_now_as_utc():
-    ical = _ical("DTSTART:20260525T133000Z\nSUMMARY:Show A (1)")
-
-    naive = upcoming_events_digest(
-        ical, now_iso="2026-05-24T00:00:00", hours=72
-    )
-    aware = upcoming_events_digest(
-        ical, now_iso="2026-05-24T00:00:00+00:00", hours=72
-    )
-
-    assert naive == aware
-    assert "Show A ep 1" in naive
-
-
-def test_upcoming_events_digest_reports_empty_window():
-    digest = upcoming_events_digest(
-        _ical(), now_iso="2026-05-24T00:00:00+00:00", hours=72
-    )
-
-    assert digest == "No scheduled anime episodes in the next 72 hours."
-
-
-def test_build_watch_queue_treats_naive_now_as_utc():
-    data = [
-        {
-            "node": {
-                "id": 7,
-                "title": "Airing Show",
-                "num_episodes": 12,
-                "status": "currently_airing",
-            },
-            "list_status": {"num_episodes_watched": 1},
-        },
-    ]
-    events = [
-        _cevent(7, 3, "2026-07-19T12:00:00"),
-        _cevent(7, 4, "2026-07-21T12:00:00"),
-    ]
-
-    naive = build_watch_queue(data, events, now=datetime(2026, 7, 20))
-    aware = build_watch_queue(
-        data, events, now=datetime(2026, 7, 20, tzinfo=UTC)
-    )
-
-    assert naive == aware
-    assert naive["entries"][0]["latest_released_count"] == 3
-
-
-@pytest.mark.parametrize(
-    ("summary", "title", "episode"),
-    [
-        (r"[sub] Show A\nPart 2 (3)", "Show A Part 2", 3),
-        (r"[sub] Show A\NPart 2 (3)", "Show A Part 2", 3),
-        (r"[sub] Show\, Part\; Two (2)", "Show, Part; Two", 2),
-        (r"[sub] C:\\new (1)", r"C:\new", 1),
-    ],
-)
-def test_parse_events_decodes_summary_escapes(summary, title, episode):
-    events = parse_anime_calendar_events(
-        _ical(f"DTSTART:20260525T133000Z\nSUMMARY:{summary}")
-    )
-
-    assert [(e.title, e.episode, e.stream_type) for e in events] == [
-        (title, episode, "sub")
-    ]

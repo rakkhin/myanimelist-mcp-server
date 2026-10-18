@@ -9,8 +9,8 @@ MCP server for interacting with the MyAnimeList API from Hermes, Claude Desktop,
 - Safer error messages that avoid returning raw API response bodies or bearer tokens.
 - Small MyAnimeList API client wrapper with request timeout and basic request pacing.
 - Auth helper tools: `mal_auth_login`, `mal_auth_login_status`, `mal_auth_status`, `mal_auth_revoke`.
-- Episode schedule helper: `get_upcoming_anime_episodes`, backed by the logged-in user's `https://api.anime-calendar.com/v3/ical/myanimelist/<username>` feed.
-- Watch queue helper: `get_watch_queue`, combines authenticated `watching` list with Anime Calendar iCal data to show per-anime watched vs latest released counts.
+- Episode schedule helper: `get_upcoming_anime_episodes`, upcoming episodes of the logged-in user's `watching` and `plan to watch` anime, with air times from [AniList](https://docs.anilist.co/).
+- Watch queue helper: `get_watch_queue`, combines the authenticated `watching` list with AniList air times to show per-anime watched vs latest released counts.
 - News RSS helper: `get_mal_news`, backed by `https://myanimelist.net/rss/news.xml`.
 - Tests, including runs of every read-only tool against anonymised recordings of real MyAnimeList responses.
 
@@ -111,10 +111,10 @@ Search, ranking, seasonal, list and suggestion results always include each title
 
 ### Episode schedule / watch queue
 
-Anime Calendar builds its feed from the user's MyAnimeList lists, so the "currently watching" and "plan to watch" lists must be public. Otherwise both tools return an Anime Calendar 403 error that says so.
+Both tools read the user's lists from MyAnimeList with their login, then look up the airing and not yet aired titles on AniList's public API by MyAnimeList id, so private lists work and no AniList account is needed. AniList times are the original Japanese broadcast, not streaming releases. AniList allows about 30 requests a minute; each call makes one request per 50 airing titles, and a refusal is returned as an `AniList error` with its status code.
 
-- `get_upcoming_anime_episodes`: **auth required**; fetch the authenticated user's upcoming episodes from their Anime Calendar iCal feed and return a digest.
-- `get_watch_queue`: **auth required**; combines the authenticated user's `watching` anime list with their Anime Calendar iCal feed to return per-title watched episodes versus latest released episodes, plus aggregate counts. Latest released is `num_episodes` for finished shows and 0 for shows not yet aired; otherwise it comes from calendar events (highest past episode, or next upcoming minus one). It is unknown when none of these apply.
+- `get_upcoming_anime_episodes`: **auth required**; episodes of the authenticated user's `watching` and `plan to watch` anime that air in the next `hours` (default 36, at most 14 days). Returns `hours`, the window start `from` and a text `digest` with each episode's list status.
+- `get_watch_queue`: **auth required**; combines the authenticated user's `watching` anime list with AniList air times to return per-title watched episodes versus latest released episodes, plus aggregate counts. Latest released is `num_episodes` for finished shows and 0 for shows not yet aired; otherwise it is the next scheduled episode minus one. It is unknown when none of these apply.
 
 ### News
 
@@ -130,4 +130,4 @@ uv run pytest -q
 
 - <https://myanimelist.net/apiconfig/references/authorization>
 - <https://myanimelist.net/apiconfig/references/api/v2>
-- <https://github.com/DerFrZocker/anime-calendar-server>
+- <https://docs.anilist.co/>

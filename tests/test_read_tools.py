@@ -1,11 +1,13 @@
 import asyncio
-from unittest.mock import AsyncMock, Mock
+from datetime import UTC, datetime
+from unittest.mock import AsyncMock, Mock, call
 
 import httpx
 import pytest
 from fastmcp.exceptions import ToolError
 
 from tools import tools
+from utils.anilist import AiringEpisode, AniListError
 from utils.auth import MALAuthError
 from utils.mal_client import MALAPIError
 from utils.schemas import (
@@ -378,73 +380,98 @@ class TestAuthTools:
         delegate.assert_called_once_with()
 
 
-@pytest.fixture
-def calendar_http(monkeypatch):
-    response = Mock()
-    response.text = "BEGIN:VCALENDAR\nEND:VCALENDAR"
-    response.raise_for_status = Mock()
-
-    http = AsyncMock()
-    http.__aenter__ = AsyncMock(return_value=http)
-    http.__aexit__ = AsyncMock(return_value=False)
-    http.get = AsyncMock(return_value=response)
-    monkeypatch.setattr(tools.httpx, "AsyncClient", Mock(return_value=http))
-    return http, response
+SCHEDULE_TOOLS = ["get_upcoming_anime_episodes", "get_watch_queue"]
+SCHEDULE_LIST_FIELDS = "num_episodes,status,list_status"
+SCHEDULE = {1: [AiringEpisode(4, datetime(2026, 5, 25, tzinfo=UTC))]}
 
 
-CALENDAR_URL = "https://api.anime-calendar.com/v3/ical/myanimelist/{}"
-CALENDAR_TOOLS = ["get_upcoming_anime_episodes", "get_watch_queue"]
+def _node(mal_id, status):
+    return {
+        "node": {"id": mal_id, "title": f"Show {mal_id}", "status": status}
+    }
 
 
-def _authed_as(user_name):
-    def responses(endpoint, token, params=None):
-        if endpoint == "/users/@me":
-            return {"id": 1, "name": user_name}
-        return {"data": []}
-
-    return responses
+LISTS = {
+    AnimeStatus.WATCHING: [
+        _node(1, "currently_airing"),
+        _node(2, "finished_airing"),
+    ],
+    AnimeStatus.PLANNING: [_node(3, "not_yet_aired")],
+}
 
 
 @pytest.fixture
-def own_name(mal):
-    mal.client.get_authed.side_effect = _authed_as("own_name")
-    return "own_name"
+def schedules(mal, monkeypatch):
+    def own_list(endpoint, token, params):
+        return {"data": LISTS[params["status"]]}
+
+    mal.client.get_authed.side_effect = own_list
+    fetch = AsyncMock(return_value=SCHEDULE)
+    monkeypatch.setattr(tools, "fetch_upcoming_episodes", fetch)
+    return fetch
+
+
+def _list_request(status):
+    params = {
+        "status": status,
+        "limit": 1000,
+        "offset": 0,
+        "fields": SCHEDULE_LIST_FIELDS,
+    }
+    return call("/users/@me/animelist", "test-token", params=params)
 
 
 class TestUpcomingAnimeEpisodes:
-    def test_fetches_user_calendar_and_clamps_hours(
-        self, mal, monkeypatch, calendar_http
+    def test_covers_watching_and_planned_airing_titles(
+        self, mal, monkeypatch, schedules
     ):
-        http, response = calendar_http
-        mal.client.get_authed.side_effect = _authed_as("some one")
-        digest = Mock(return_value={"events": []})
-        monkeypatch.setattr(tools, "upcoming_events_digest", digest)
+        digest = Mock(return_value={"digest": "..."})
+        monkeypatch.setattr(tools, "upcoming_episodes", digest)
 
         result = mal.call("get_upcoming_anime_episodes", hours=1000)
 
-        http.get.assert_awaited_once_with(CALENDAR_URL.format("some%20one"))
-        digest.assert_called_once_with(response.text, hours=24 * 14)
-        assert result == {
-            "username": "some one",
-            "hours": 24 * 14,
-            "digest": {"events": []},
-        }
+        assert mal.client.get_authed.await_args_list == [
+            _list_request(AnimeStatus.WATCHING),
+            _list_request(AnimeStatus.PLANNING),
+        ]
+        schedules.assert_awaited_once_with([1, 3])
+        anime = [*LISTS[AnimeStatus.WATCHING], *LISTS[AnimeStatus.PLANNING]]
+        digest.assert_called_once_with(anime, SCHEDULE, hours=24 * 14)
+        assert result == {"digest": "..."}
 
-    def test_calendar_http_error_is_returned_as_payload(
-        self, mal, own_name, calendar_http
+    def test_returns_digest_over_mcp(self, mal, schedules):
+        result = mal.call_over_mcp("get_upcoming_anime_episodes", {})
+
+        assert result.structured_content["hours"] == 36
+        assert "digest" in result.structured_content
+
+
+class TestGetWatchQueue:
+    def test_combines_watching_list_with_schedules(
+        self, mal, monkeypatch, schedules
     ):
-        _, response = calendar_http
-        request = httpx.Request("GET", "https://api.anime-calendar.com")
-        response.raise_for_status.side_effect = httpx.HTTPStatusError(
-            "404",
-            request=request,
-            response=httpx.Response(404, request=request),
-        )
+        queue = Mock(return_value={"entries": []})
+        monkeypatch.setattr(tools, "build_watch_queue", queue)
 
-        result = mal.call("get_upcoming_anime_episodes")
+        result = mal.call("get_watch_queue")
 
-        assert result["status_code"] == 404
-        assert "error" in result
+        assert mal.client.get_authed.await_args_list == [
+            _list_request(AnimeStatus.WATCHING)
+        ]
+        schedules.assert_awaited_once_with([1])
+        queue.assert_called_once_with(LISTS[AnimeStatus.WATCHING], SCHEDULE)
+        assert result == {"entries": []}
+
+    def test_unexpected_list_body_counts_as_empty(
+        self, mal, monkeypatch, schedules
+    ):
+        mal.client.get_authed.side_effect = None
+        mal.client.get_authed.return_value = {"ok": True}
+
+        result = mal.call("get_watch_queue")
+
+        schedules.assert_awaited_once_with([])
+        assert result["entries"] == []
 
 
 MANGA_FIELD_TOOLS = [
@@ -513,26 +540,15 @@ class TestDefaultFields:
         assert params["fields"] == expected
 
 
-class TestCalendarUser:
-    @pytest.mark.parametrize("name", CALENDAR_TOOLS)
-    def test_uses_logged_in_user(self, mal, own_name, calendar_http, name):
-        http, _ = calendar_http
-
-        result = mal.call_over_mcp(name, {})
-
-        assert not result.is_error
-        http.get.assert_awaited_once_with(CALENDAR_URL.format(own_name))
-        mal.client.get_authed.assert_any_await("/users/@me", "test-token")
-
-    @pytest.mark.parametrize("name", CALENDAR_TOOLS)
+class TestScheduleTools:
+    @pytest.mark.parametrize("name", SCHEDULE_TOOLS)
     def test_takes_no_username(self, mal, name):
         tool = asyncio.run(mal.mcp.get_tool(name))
 
         assert "username" not in tool.parameters["properties"]
 
-    @pytest.mark.parametrize("name", CALENDAR_TOOLS)
-    def test_requires_login(self, mal, calendar_http, monkeypatch, name):
-        http, _ = calendar_http
+    @pytest.mark.parametrize("name", SCHEDULE_TOOLS)
+    def test_requires_login(self, mal, schedules, monkeypatch, name):
         monkeypatch.setattr(
             tools,
             "get_mal_access_token",
@@ -542,45 +558,32 @@ class TestCalendarUser:
         result = mal.call_over_mcp(name, {})
 
         assert "mal_auth_login" in result.structured_content["error"]
-        http.get.assert_not_awaited()
         mal.client.get_authed.assert_not_awaited()
+        schedules.assert_not_awaited()
 
+    @pytest.mark.parametrize("name", SCHEDULE_TOOLS)
+    def test_anilist_error_is_returned_as_payload(self, mal, schedules, name):
+        response = httpx.Response(
+            429,
+            json={"errors": [{"message": "Too Many Requests."}]},
+            request=httpx.Request("POST", "https://graphql.anilist.co"),
+        )
+        schedules.side_effect = AniListError(response, response.json())
 
-CALENDAR_403 = {
-    "message": "Could not access MyAnimeList information for the given "
-    "user. Make sure your currently watching and planed to watch lists are "
-    "public.",
-    "code": 403,
-}
+        result = mal.call_over_mcp(name, {})
 
+        assert result.structured_content == {
+            "error": "AniList error: 429 Too Many Requests: "
+            "Too Many Requests.",
+            "status_code": 429,
+        }
 
-@pytest.mark.parametrize("name", CALENDAR_TOOLS)
-def test_calendar_refusal_is_reported_with_its_own_message(
-    mal, own_name, calendar_http, name
-):
-    _, response = calendar_http
-    request = httpx.Request("GET", CALENDAR_URL.format(own_name))
-    response.raise_for_status.side_effect = httpx.HTTPStatusError(
-        "403",
-        request=request,
-        response=httpx.Response(403, json=CALENDAR_403, request=request),
-    )
+    @pytest.mark.parametrize("name", SCHEDULE_TOOLS)
+    def test_network_failure_is_returned_as_payload(
+        self, mal, schedules, name
+    ):
+        schedules.side_effect = httpx.ConnectError("anilist unreachable")
 
-    result = mal.call_over_mcp(name, {})
+        result = mal.call(name)
 
-    assert result.structured_content == {
-        "error": "Anime Calendar error: 403 Forbidden: "
-        + CALENDAR_403["message"],
-        "status_code": 403,
-    }
-
-
-def test_calendar_network_failure_is_returned_as_payload(
-    mal, own_name, calendar_http
-):
-    http, _ = calendar_http
-    http.get.side_effect = httpx.ConnectError("calendar unreachable")
-
-    result = mal.call("get_upcoming_anime_episodes")
-
-    assert result == {"error": "calendar unreachable"}
+        assert result == {"error": "anilist unreachable"}
