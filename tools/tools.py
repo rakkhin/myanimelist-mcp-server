@@ -690,19 +690,10 @@ def register_tools(mcp: FastMCP):
             return api_error_payload(e)
 
     @mcp.tool(annotations=READ_ONLY)
-    async def get_upcoming_anime_episodes(
-        username: str | None = None, hours: int = 36
-    ) -> dict:
-        """Fetch upcoming episode releases from anime-calendar.com iCal for a MAL username, by default the logged-in user."""
+    async def get_upcoming_anime_episodes(hours: int = 36) -> dict:
+        """Fetch the authenticated user's upcoming episode releases from their anime-calendar.com iCal feed."""
         try:
-            if not username:
-                try:
-                    username = await own_user_name(await token())
-                except MALAuthError:
-                    return {
-                        "error": "No username given and not logged in. "
-                        "Pass a username, or call 'mal_auth_login' first."
-                    }
+            username = await own_user_name(await token())
             hours = normalize_episode_window(hours)
             calendar = await fetch_anime_calendar(username)
             return {
@@ -716,17 +707,14 @@ def register_tools(mcp: FastMCP):
             return api_error_payload(e)
 
     @mcp.tool(annotations=READ_ONLY)
-    async def get_watch_queue(username: str | None = None) -> dict:
+    async def get_watch_queue() -> dict:
         """Build a watch queue digest from the authenticated user's 'watching' anime list and Anime Calendar iCal data.
-
-        The calendar is the logged-in user's unless another username is given.
 
         Returns per-anime watched episode counts against latest released episodes (from calendar or total episode metadata)
         plus aggregate totals. Latest released is unknown for titles that are neither finished nor found in the calendar feed."""
         try:
             access_token = await token()
-            if not username:
-                username = await own_user_name(access_token)
+            username = await own_user_name(access_token)
             list_fields = _with_list_status(
                 build_fields(
                     [AnimeFields.NUM_EPISODES, AnimeFields.STATUS], []

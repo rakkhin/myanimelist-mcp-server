@@ -253,12 +253,12 @@ def test_upcoming_episodes_are_rebuilt_from_recorded_calendar(
 ):
     calendar = load("get_upcoming_anime_episodes_calendar.ics")
     recorded = load("get_upcoming_anime_episodes.json")
+    mal.client.get_authed.return_value = {"name": recorded["username"]}
     _serve_text(monkeypatch, calendar)
     _freeze_at_calendar_stamp(monkeypatch, calendar)
 
     result = mal.call_over_mcp(
-        "get_upcoming_anime_episodes",
-        {"username": recorded["username"], "hours": recorded["hours"]},
+        "get_upcoming_anime_episodes", {"hours": recorded["hours"]}
     )
 
     assert result.structured_content == recorded
