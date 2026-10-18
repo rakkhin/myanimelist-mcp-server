@@ -1,13 +1,16 @@
 import asyncio
+import os
 import runpy
 import signal
+import subprocess
+import sys
 from pathlib import Path
 from unittest.mock import Mock
 
 import pytest
 from fastmcp import Client, FastMCP
 
-from main import _handle_sigint, create_server
+from main import _handle_shutdown_signal, create_server
 from utils.mal_client import MALAPIError, MALClient
 
 
@@ -57,7 +60,7 @@ def test_running_main_starts_stdio_server(monkeypatch):
     monkeypatch.setenv("MAL_CLIENT_ID", "test-id")
     run = Mock()
     monkeypatch.setattr(FastMCP, "run", run)
-    # Keep the handler out of the pytest process.
+    # Keep the handlers out of the pytest process.
     install_handler = Mock()
     monkeypatch.setattr(signal, "signal", install_handler)
 
@@ -66,16 +69,54 @@ def test_running_main_starts_stdio_server(monkeypatch):
     )
 
     run.assert_called_once_with(transport="stdio")
-    [(signum, handler)] = [c.args for c in install_handler.call_args_list]
-    assert signum == signal.SIGINT
-    assert handler.__name__ == "_handle_sigint"
+    installed = {c.args[0]: c.args[1] for c in install_handler.call_args_list}
+    assert set(installed) == {signal.SIGINT, signal.SIGTERM}
+    assert all(
+        handler.__name__ == "_handle_shutdown_signal"
+        for handler in installed.values()
+    )
 
 
-def test_sigint_exits_cleanly_and_keeps_stdout_for_the_protocol(capsys):
-    with pytest.raises(SystemExit) as exit_info:
-        _handle_sigint(signal.SIGINT, None)
+def test_signal_exits_and_keeps_stdout_for_the_protocol(capsys, monkeypatch):
+    exit_process = Mock()
+    monkeypatch.setattr(os, "_exit", exit_process)
 
-    assert exit_info.value.code == 0
+    _handle_shutdown_signal(signal.SIGTERM, None)
+
+    exit_process.assert_called_once_with(128 + signal.SIGTERM)
     captured = capsys.readouterr()
     assert captured.out == ""
-    assert "Shutting down" in captured.err
+    assert "Received SIGTERM, shutting down." in captured.err
+
+
+@pytest.mark.parametrize("signum", [signal.SIGINT, signal.SIGTERM])
+def test_signal_stops_server_while_stdin_is_open(signum, tmp_path):
+    env = {
+        **os.environ,
+        # The child imports utils.auth, which would load the real .env.
+        "PYTHON_DOTENV_DISABLED": "1",
+        "MAL_CLIENT_ID": "test-id",
+        "FASTMCP_SHOW_SERVER_BANNER": "false",
+        "FASTMCP_CHECK_FOR_UPDATES": "off",
+    }
+    main_py = Path(__file__).parents[1] / "main.py"
+    process = subprocess.Popen(
+        [sys.executable, str(main_py)],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        cwd=tmp_path,
+        env=env,
+    )
+    try:
+        # Wait until the server is reading stdin, where it used to hang.
+        for line in process.stderr:
+            if b"Starting MCP server" in line:
+                break
+        process.send_signal(signum)
+        returncode = process.wait(timeout=10)
+    finally:
+        process.kill()
+        process.communicate()
+
+    assert returncode == 128 + signum
