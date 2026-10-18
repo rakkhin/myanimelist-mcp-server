@@ -1,3 +1,4 @@
+import os
 import signal
 import sys
 
@@ -13,14 +14,25 @@ def create_server() -> FastMCP:
     return mcp
 
 
-def _handle_sigint(sig, frame):
+def _handle_shutdown_signal(signum, frame):
+    """Exit at once on SIGINT or SIGTERM.
+
+    The stdio transport reads stdin with a blocking call in a non-daemon
+    worker thread that cannot be cancelled, so unwinding normally
+    (KeyboardInterrupt, sys.exit) waits until the next line arrives on stdin.
+    Clients stop the server by closing stdin, which shuts it down cleanly;
+    signals skip the unwinding. Nothing is lost: there is no cleanup to run
+    and token files are replaced atomically.
+    """
     # Diagnostics go to stderr so they never corrupt the stdio JSON-RPC stream.
-    print("Shutting down server gracefully...", file=sys.stderr)
-    sys.exit(0)
+    name = signal.Signals(signum).name
+    print(f"Received {name}, shutting down.", file=sys.stderr, flush=True)
+    os._exit(128 + signum)
 
 
 def main():
-    signal.signal(signal.SIGINT, _handle_sigint)
+    for signum in (signal.SIGINT, signal.SIGTERM):
+        signal.signal(signum, _handle_shutdown_signal)
     mcp = create_server()
     mcp.run(transport="stdio")
 
