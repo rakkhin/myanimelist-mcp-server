@@ -24,6 +24,7 @@ uv run python scripts/anonymize_fixtures.py  # regenerate tests/fixtures/mal/
 
 - The repo uses the feature branch workflow: work on a feature branch, never commit directly to the default branch (`master`), and merge through a pull request.
 - Prefer squash merges when completing a pull request into the default branch, so each feature branch lands as one commit.
+- Commit messages follow [Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/): `<type>[optional scope][!]: <description>` (e.g. `feat:`, `fix:`, `build:`, `refactor:`, `docs:`, `test:`, `ci:`, `chore:`), with breaking changes marked by `!` or a `BREAKING CHANGE:` footer. Pull request titles follow the same format, since the squash commit takes its message from the title.
 
 ## Architecture
 
