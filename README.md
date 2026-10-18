@@ -9,7 +9,7 @@ MCP server for interacting with the MyAnimeList API from Hermes, Claude Desktop,
 - Safer error messages that avoid returning raw API response bodies or bearer tokens.
 - Small MyAnimeList API client wrapper with request timeout and basic request pacing.
 - Auth helper tools: `mal_auth_login`, `mal_auth_login_status`, `mal_auth_status`, `mal_auth_revoke`.
-- Episode schedule helper: `get_upcoming_anime_episodes`, backed by `https://api.anime-calendar.com/v3/ical/myanimelist/<username>`.
+- Episode schedule helper: `get_upcoming_anime_episodes`, backed by the logged-in user's `https://api.anime-calendar.com/v3/ical/myanimelist/<username>` feed.
 - Watch queue helper: `get_watch_queue`, combines authenticated `watching` list with Anime Calendar iCal data to show per-anime watched vs latest released counts.
 - News RSS helper: `get_mal_news`, backed by `https://myanimelist.net/rss/news.xml`.
 - Tests, including runs of every read-only tool against anonymised recordings of real MyAnimeList responses.
@@ -113,8 +113,8 @@ Search, ranking, seasonal, list and suggestion results always include each title
 
 Anime Calendar builds its feed from the user's MyAnimeList lists, so the "currently watching" and "plan to watch" lists must be public. Otherwise both tools return an Anime Calendar 403 error that says so.
 
-- `get_upcoming_anime_episodes`: fetch upcoming episodes for a MAL username (defaults to the logged-in user; a username works without login) from Anime Calendar iCal and return a digest.
-- `get_watch_queue`: **auth required**; combines the authenticated user's `watching` anime list with the Anime Calendar iCal feed of `username` (defaults to the logged-in user) to return per-title watched episodes versus latest released episodes, plus aggregate counts. Latest released is `num_episodes` for finished shows and 0 for shows not yet aired; otherwise it comes from calendar events (highest past episode, or next upcoming minus one). It is unknown when none of these apply.
+- `get_upcoming_anime_episodes`: **auth required**; fetch the authenticated user's upcoming episodes from their Anime Calendar iCal feed and return a digest.
+- `get_watch_queue`: **auth required**; combines the authenticated user's `watching` anime list with their Anime Calendar iCal feed to return per-title watched episodes versus latest released episodes, plus aggregate counts. Latest released is `num_episodes` for finished shows and 0 for shows not yet aired; otherwise it comes from calendar events (highest past episode, or next upcoming minus one). It is unknown when none of these apply.
 
 ### News
 

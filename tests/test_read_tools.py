@@ -1,3 +1,4 @@
+import asyncio
 from unittest.mock import AsyncMock, Mock
 
 import httpx
@@ -391,21 +392,37 @@ def calendar_http(monkeypatch):
     return http, response
 
 
+CALENDAR_URL = "https://api.anime-calendar.com/v3/ical/myanimelist/{}"
+CALENDAR_TOOLS = ["get_upcoming_anime_episodes", "get_watch_queue"]
+
+
+def _authed_as(user_name):
+    def responses(endpoint, token, params=None):
+        if endpoint == "/users/@me":
+            return {"id": 1, "name": user_name}
+        return {"data": []}
+
+    return responses
+
+
+@pytest.fixture
+def own_name(mal):
+    mal.client.get_authed.side_effect = _authed_as("own_name")
+    return "own_name"
+
+
 class TestUpcomingAnimeEpisodes:
     def test_fetches_user_calendar_and_clamps_hours(
         self, mal, monkeypatch, calendar_http
     ):
         http, response = calendar_http
+        mal.client.get_authed.side_effect = _authed_as("some one")
         digest = Mock(return_value={"events": []})
         monkeypatch.setattr(tools, "upcoming_events_digest", digest)
 
-        result = mal.call(
-            "get_upcoming_anime_episodes", username="some one", hours=1000
-        )
+        result = mal.call("get_upcoming_anime_episodes", hours=1000)
 
-        http.get.assert_awaited_once_with(
-            "https://api.anime-calendar.com/v3/ical/myanimelist/some%20one"
-        )
+        http.get.assert_awaited_once_with(CALENDAR_URL.format("some%20one"))
         digest.assert_called_once_with(response.text, hours=24 * 14)
         assert result == {
             "username": "some one",
@@ -414,7 +431,7 @@ class TestUpcomingAnimeEpisodes:
         }
 
     def test_calendar_http_error_is_returned_as_payload(
-        self, mal, calendar_http
+        self, mal, own_name, calendar_http
     ):
         _, response = calendar_http
         request = httpx.Request("GET", "https://api.anime-calendar.com")
@@ -424,7 +441,7 @@ class TestUpcomingAnimeEpisodes:
             response=httpx.Response(404, request=request),
         )
 
-        result = mal.call("get_upcoming_anime_episodes", username="nobody")
+        result = mal.call("get_upcoming_anime_episodes")
 
         assert result["status_code"] == 404
         assert "error" in result
@@ -496,78 +513,37 @@ class TestDefaultFields:
         assert params["fields"] == expected
 
 
-CALENDAR_URL = "https://api.anime-calendar.com/v3/ical/myanimelist/{}"
-
-
-def _authed_responses(endpoint, token, params=None):
-    if endpoint == "/users/@me":
-        return {"id": 1, "name": "own_name"}
-    return {"data": []}
-
-
-class TestCalendarUsername:
-    @pytest.mark.parametrize(
-        "name", ["get_upcoming_anime_episodes", "get_watch_queue"]
-    )
-    def test_defaults_to_logged_in_user(self, mal, calendar_http, name):
+class TestCalendarUser:
+    @pytest.mark.parametrize("name", CALENDAR_TOOLS)
+    def test_uses_logged_in_user(self, mal, own_name, calendar_http, name):
         http, _ = calendar_http
-        mal.client.get_authed.side_effect = _authed_responses
 
         result = mal.call_over_mcp(name, {})
 
         assert not result.is_error
-        http.get.assert_awaited_once_with(CALENDAR_URL.format("own_name"))
+        http.get.assert_awaited_once_with(CALENDAR_URL.format(own_name))
         mal.client.get_authed.assert_any_await("/users/@me", "test-token")
 
-    @pytest.mark.parametrize(
-        "name", ["get_upcoming_anime_episodes", "get_watch_queue"]
-    )
-    def test_explicit_username_is_used_without_profile_lookup(
-        self, mal, calendar_http, name
-    ):
-        http, _ = calendar_http
-        mal.client.get_authed.side_effect = _authed_responses
+    @pytest.mark.parametrize("name", CALENDAR_TOOLS)
+    def test_takes_no_username(self, mal, name):
+        tool = asyncio.run(mal.mcp.get_tool(name))
 
-        mal.call_over_mcp(name, {"username": "someone"})
+        assert "username" not in tool.parameters["properties"]
 
-        http.get.assert_awaited_once_with(CALENDAR_URL.format("someone"))
-        assert all(
-            c.args[0] != "/users/@me"
-            for c in mal.client.get_authed.await_args_list
-        )
-
-    def test_upcoming_episodes_with_username_need_no_login(
-        self, mal, calendar_http, monkeypatch
-    ):
+    @pytest.mark.parametrize("name", CALENDAR_TOOLS)
+    def test_requires_login(self, mal, calendar_http, monkeypatch, name):
         http, _ = calendar_http
         monkeypatch.setattr(
             tools,
             "get_mal_access_token",
-            AsyncMock(side_effect=MALAuthError("not logged in")),
+            AsyncMock(side_effect=MALAuthError("call 'mal_auth_login'")),
         )
 
-        result = mal.call(
-            "get_upcoming_anime_episodes", username="someone", hours=36
-        )
+        result = mal.call_over_mcp(name, {})
 
-        assert result["username"] == "someone"
-        http.get.assert_awaited_once()
-
-    def test_upcoming_episodes_without_username_or_login_ask_for_one(
-        self, mal, calendar_http, monkeypatch
-    ):
-        http, _ = calendar_http
-        monkeypatch.setattr(
-            tools,
-            "get_mal_access_token",
-            AsyncMock(side_effect=MALAuthError("not logged in")),
-        )
-
-        result = mal.call_over_mcp("get_upcoming_anime_episodes", {})
-
-        assert "username" in result.structured_content["error"]
         assert "mal_auth_login" in result.structured_content["error"]
         http.get.assert_not_awaited()
+        mal.client.get_authed.assert_not_awaited()
 
 
 CALENDAR_403 = {
@@ -578,21 +554,19 @@ CALENDAR_403 = {
 }
 
 
-@pytest.mark.parametrize(
-    "name", ["get_upcoming_anime_episodes", "get_watch_queue"]
-)
+@pytest.mark.parametrize("name", CALENDAR_TOOLS)
 def test_calendar_refusal_is_reported_with_its_own_message(
-    mal, calendar_http, name
+    mal, own_name, calendar_http, name
 ):
     _, response = calendar_http
-    request = httpx.Request("GET", CALENDAR_URL.format("someone"))
+    request = httpx.Request("GET", CALENDAR_URL.format(own_name))
     response.raise_for_status.side_effect = httpx.HTTPStatusError(
         "403",
         request=request,
         response=httpx.Response(403, json=CALENDAR_403, request=request),
     )
 
-    result = mal.call_over_mcp(name, {"username": "someone"})
+    result = mal.call_over_mcp(name, {})
 
     assert result.structured_content == {
         "error": "Anime Calendar error: 403 Forbidden: "
@@ -601,10 +575,12 @@ def test_calendar_refusal_is_reported_with_its_own_message(
     }
 
 
-def test_calendar_network_failure_is_returned_as_payload(mal, calendar_http):
+def test_calendar_network_failure_is_returned_as_payload(
+    mal, own_name, calendar_http
+):
     http, _ = calendar_http
     http.get.side_effect = httpx.ConnectError("calendar unreachable")
 
-    result = mal.call("get_upcoming_anime_episodes", username="someone")
+    result = mal.call("get_upcoming_anime_episodes")
 
     assert result == {"error": "calendar unreachable"}

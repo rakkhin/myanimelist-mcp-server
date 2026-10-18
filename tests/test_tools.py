@@ -1101,6 +1101,18 @@ class TestSeasonalAnimeErrorHandling:
             assert result["status_code"] == 503
 
 
+USER = "test user"
+
+
+def _authed_as(user_name, animelist=None):
+    def responses(endpoint, token, params=None):
+        if endpoint == "/users/@me":
+            return {"id": 1, "name": user_name}
+        return animelist or {"data": []}
+
+    return responses
+
+
 class TestGetWatchQueue:
     def test_get_watch_queue_auth_required(self):
         from fastmcp import FastMCP
@@ -1115,7 +1127,7 @@ class TestGetWatchQueue:
             patch("tools.tools.httpx.AsyncClient") as mock_async_client_cls,
         ):
             mock_client = AsyncMock()
-            mock_client.get_authed = AsyncMock(return_value={"data": []})
+            mock_client.get_authed = AsyncMock(side_effect=_authed_as(USER))
             mock_client_cls.return_value = mock_client
 
             cal_text = "BEGIN:VCALENDAR\nEND:VCALENDAR\n"
@@ -1131,9 +1143,9 @@ class TestGetWatchQueue:
             register_tools(mcp)
 
             tool = asyncio.run(mcp.get_tool("get_watch_queue"))
-            asyncio.run(tool.fn("testuser"))
+            asyncio.run(tool.fn())
 
-            mock_client.get_authed.assert_called_once()
+            assert mock_client.get_authed.call_count == 2
             assert (
                 mock_client.get_authed.call_args.args[0]
                 == "/users/@me/animelist"
@@ -1179,7 +1191,7 @@ class TestGetWatchQueue:
             patch("tools.tools.httpx.AsyncClient") as mock_async_client_cls,
         ):
             mock_client = AsyncMock()
-            mock_client.get_authed = AsyncMock(return_value={"data": []})
+            mock_client.get_authed = AsyncMock(side_effect=_authed_as(USER))
             mock_client_cls.return_value = mock_client
 
             cal_text = "BEGIN:VCALENDAR\nEND:VCALENDAR\n"
@@ -1195,9 +1207,9 @@ class TestGetWatchQueue:
             register_tools(mcp)
 
             tool = asyncio.run(mcp.get_tool("get_watch_queue"))
-            asyncio.run(tool.fn("test user"))
+            asyncio.run(tool.fn())
 
-            expected = f"https://api.anime-calendar.com/v3/ical/myanimelist/{quote('test user', safe='')}"
+            expected = f"https://api.anime-calendar.com/v3/ical/myanimelist/{quote(USER, safe='')}"
             mock_http.get.assert_called_once_with(expected)
 
     def test_get_watch_queue_calendar_error_returns_safe_payload(self):
@@ -1214,7 +1226,7 @@ class TestGetWatchQueue:
             patch("tools.tools.httpx.AsyncClient") as mock_async_client_cls,
         ):
             mock_client = AsyncMock()
-            mock_client.get_authed = AsyncMock(return_value={"data": []})
+            mock_client.get_authed = AsyncMock(side_effect=_authed_as(USER))
             mock_client_cls.return_value = mock_client
 
             mock_http = AsyncMock()
@@ -1233,7 +1245,7 @@ class TestGetWatchQueue:
             register_tools(mcp)
 
             tool = asyncio.run(mcp.get_tool("get_watch_queue"))
-            result = asyncio.run(tool.fn("testuser"))
+            result = asyncio.run(tool.fn())
 
             assert "error" in result
             assert "503" in result["error"]
@@ -1252,19 +1264,22 @@ class TestGetWatchQueue:
         ):
             mock_client = AsyncMock()
             mock_client.get_authed = AsyncMock(
-                return_value={
-                    "data": [
-                        {
-                            "node": {
-                                "id": 1,
-                                "title": "Show A",
-                                "num_episodes": 12,
-                                "status": "finished_airing",
+                side_effect=_authed_as(
+                    USER,
+                    {
+                        "data": [
+                            {
+                                "node": {
+                                    "id": 1,
+                                    "title": "Show A",
+                                    "num_episodes": 12,
+                                    "status": "finished_airing",
+                                },
+                                "list_status": {"num_episodes_watched": 5},
                             },
-                            "list_status": {"num_episodes_watched": 5},
-                        },
-                    ]
-                }
+                        ]
+                    },
+                )
             )
             mock_client_cls.return_value = mock_client
 
@@ -1281,7 +1296,7 @@ class TestGetWatchQueue:
             register_tools(mcp)
 
             tool = asyncio.run(mcp.get_tool("get_watch_queue"))
-            result = asyncio.run(tool.fn("testuser"))
+            result = asyncio.run(tool.fn())
 
             assert "entries" in result
             assert "aggregate" in result
