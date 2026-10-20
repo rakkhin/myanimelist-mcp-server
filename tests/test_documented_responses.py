@@ -16,6 +16,7 @@ from pathlib import Path
 
 import httpx
 import pytest
+from payloads import tool_payload
 
 DOCS_DIR = Path(__file__).parent / "fixtures" / "mal_docs"
 
@@ -58,7 +59,7 @@ def test_update_sends_documented_request_and_returns_documented_response(
         endpoint, "test-token", data=form
     )
     assert not result.is_error
-    assert result.structured_content == documented
+    assert tool_payload(result) == documented
 
 
 DELETE_TOOLS = [
@@ -75,7 +76,7 @@ def test_delete_reports_success_for_empty_client_result(
 
     result = mal.call_over_mcp(name, {id_arg: 21})
 
-    assert result.structured_content == {
+    assert tool_payload(result) == {
         "message": f"{label} ID 21 deleted successfully"
     }
 
@@ -94,7 +95,7 @@ def test_delete_reports_nonexistent_title_as_error_payload(
 
     result = mal.call_over_mcp(name, {id_arg: 21})
 
-    assert result.structured_content == {
+    assert tool_payload(result) == {
         "error": "MAL API error: 404 Not Found",
         "status_code": 404,
     }

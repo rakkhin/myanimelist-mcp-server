@@ -8,10 +8,13 @@ from unittest.mock import AsyncMock
 import httpx
 import pytest
 from fastmcp import Client, FastMCP
+from fastmcp.tools import ToolResult
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
+
+from payloads import tool_payload
 
 from tools import tools
 from utils import auth
@@ -52,9 +55,15 @@ class ToolHarness:
     client: AsyncMock
 
     def call(self, name, **kwargs):
-        """Call the tool function directly; FastMCP argument validation is skipped."""
+        """Call the tool function directly and return its decoded payload.
+
+        FastMCP argument validation is skipped. See tool_payload for what
+        the result must look like.
+        """
         tool = asyncio.run(self.mcp.get_tool(name))
-        return asyncio.run(tool.fn(**kwargs))
+        result = asyncio.run(tool.fn(**kwargs))
+        assert isinstance(result, ToolResult)
+        return tool_payload(result)
 
     def call_over_mcp(self, name, arguments):
         async def run():

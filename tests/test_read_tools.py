@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock, Mock, call
 import httpx
 import pytest
 from fastmcp.exceptions import ToolError
+from payloads import tool_payload
 
 from tools import tools
 from utils.anilist import AiringEpisode, AniListError
@@ -442,8 +443,8 @@ class TestUpcomingAnimeEpisodes:
     def test_returns_digest_over_mcp(self, mal, schedules):
         result = mal.call_over_mcp("get_upcoming_anime_episodes", {})
 
-        assert result.structured_content["hours"] == 36
-        assert "digest" in result.structured_content
+        assert tool_payload(result)["hours"] == 36
+        assert "digest" in tool_payload(result)
 
 
 class TestGetWatchQueue:
@@ -557,7 +558,7 @@ class TestScheduleTools:
 
         result = mal.call_over_mcp(name, {})
 
-        assert "mal_auth_login" in result.structured_content["error"]
+        assert "mal_auth_login" in tool_payload(result)["error"]
         mal.client.get_authed.assert_not_awaited()
         schedules.assert_not_awaited()
 
@@ -572,7 +573,7 @@ class TestScheduleTools:
 
         result = mal.call_over_mcp(name, {})
 
-        assert result.structured_content == {
+        assert tool_payload(result) == {
             "error": "AniList error: 429 Too Many Requests: "
             "Too Many Requests.",
             "status_code": 429,

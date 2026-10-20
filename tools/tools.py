@@ -8,6 +8,7 @@ from xml.etree import ElementTree
 import httpx
 from dotenv import load_dotenv
 from fastmcp import FastMCP
+from fastmcp.tools import ToolResult
 from mcp.types import ToolAnnotations
 from pydantic import Field
 
@@ -29,6 +30,7 @@ from utils.mal_client import (
     clamp_limit,
 )
 from utils.schemas import *
+from utils.serialization import format_tool_payload
 
 load_dotenv()
 
@@ -43,6 +45,15 @@ _TOOL_ERRORS = (MALAPIError, MALAuthError, httpx.HTTPError, ValueError)
 
 READ_ONLY = ToolAnnotations(read_only_hint=True)
 MUTATING = ToolAnnotations(read_only_hint=False)
+
+
+def _tool_result(data: dict) -> ToolResult:
+    """Wrap a payload as the result's only content: TOON or JSON text.
+
+    No structured content: hosts such as Claude Code show the model that
+    instead of the text, and the spec expects JSON text next to it.
+    """
+    return ToolResult(content=format_tool_payload(data))
 
 
 # User list items hold the user's entry (status, score, progress) in
@@ -166,31 +177,37 @@ def register_tools(mcp: FastMCP):
 
     # Anime
     @mcp.tool(annotations=READ_ONLY)
-    async def get_anime(q: str, limit: int = 10, offset: int = 0) -> dict:
+    async def get_anime(
+        q: str, limit: int = 10, offset: int = 0
+    ) -> ToolResult:
         """Search anime on MyAnimeList."""
         try:
-            return await client().get_public(
-                "/anime",
-                params={
-                    "q": q,
-                    "limit": clamp_limit(limit, 100),
-                    "offset": max(0, offset),
-                    "fields": build_fields(None, _DEFAULT_ANIME_FIELDS),
-                },
+            return _tool_result(
+                await client().get_public(
+                    "/anime",
+                    params={
+                        "q": q,
+                        "limit": clamp_limit(limit, 100),
+                        "offset": max(0, offset),
+                        "fields": build_fields(None, _DEFAULT_ANIME_FIELDS),
+                    },
+                )
             )
         except _TOOL_ERRORS as e:
-            return api_error_payload(e)
+            return _tool_result(api_error_payload(e))
 
     @mcp.tool(annotations=READ_ONLY)
-    async def get_anime_details(anime_id: int) -> dict:
+    async def get_anime_details(anime_id: int) -> ToolResult:
         """Fetch anime details by MAL ID."""
         try:
             fields_param = build_fields(None, AnimeFields)
-            return await client().get_public(
-                f"/anime/{anime_id}", params={"fields": fields_param}
+            return _tool_result(
+                await client().get_public(
+                    f"/anime/{anime_id}", params={"fields": fields_param}
+                )
             )
         except _TOOL_ERRORS as e:
-            return api_error_payload(e)
+            return _tool_result(api_error_payload(e))
 
     @mcp.tool(annotations=READ_ONLY)
     async def get_anime_ranking(
@@ -198,7 +215,7 @@ def register_tools(mcp: FastMCP):
         limit: int = 10,
         offset: int = 0,
         fields: list[AnimeFields] | None = None,
-    ) -> dict:
+    ) -> ToolResult:
         """Fetch anime rankings from MyAnimeList."""
         try:
             params: dict[str, object] = {
@@ -207,9 +224,11 @@ def register_tools(mcp: FastMCP):
                 "offset": max(0, offset),
             }
             params["fields"] = build_fields(fields, _DEFAULT_ANIME_FIELDS)
-            return await client().get_public("/anime/ranking", params=params)
+            return _tool_result(
+                await client().get_public("/anime/ranking", params=params)
+            )
         except _TOOL_ERRORS as e:
-            return api_error_payload(e)
+            return _tool_result(api_error_payload(e))
 
     @mcp.tool(annotations=READ_ONLY)
     async def get_seasonal_anime(
@@ -219,7 +238,7 @@ def register_tools(mcp: FastMCP):
         limit: int = 10,
         offset: int = 0,
         fields: list[AnimeFields] | None = None,
-    ) -> dict:
+    ) -> ToolResult:
         """Fetch seasonal anime from MyAnimeList."""
         try:
             params: dict[str, object] = {
@@ -229,11 +248,13 @@ def register_tools(mcp: FastMCP):
             if sort:
                 params["sort"] = sort
             params["fields"] = build_fields(fields, _DEFAULT_ANIME_FIELDS)
-            return await client().get_public(
-                f"/anime/season/{year}/{season}", params=params
+            return _tool_result(
+                await client().get_public(
+                    f"/anime/season/{year}/{season}", params=params
+                )
             )
         except _TOOL_ERRORS as e:
-            return api_error_payload(e)
+            return _tool_result(api_error_payload(e))
 
     @mcp.tool(annotations=READ_ONLY)
     async def get_anime_list(
@@ -243,7 +264,7 @@ def register_tools(mcp: FastMCP):
         limit: int = 10,
         offset: int = 0,
         nsfw: bool = False,
-    ) -> dict:
+    ) -> ToolResult:
         """Fetch a public MyAnimeList anime list for a user."""
         try:
             params: dict[str, object] = {
@@ -259,39 +280,48 @@ def register_tools(mcp: FastMCP):
             params["fields"] = _with_list_status(
                 build_fields(None, _DEFAULT_ANIME_FIELDS)
             )
-            return await client().get_public(
-                f"/users/{quote(username, safe='')}/animelist", params=params
+            return _tool_result(
+                await client().get_public(
+                    f"/users/{quote(username, safe='')}/animelist",
+                    params=params,
+                )
             )
         except _TOOL_ERRORS as e:
-            return api_error_payload(e)
+            return _tool_result(api_error_payload(e))
 
     # Manga
     @mcp.tool(annotations=READ_ONLY)
-    async def get_manga(q: str, limit: int = 10, offset: int = 0) -> dict:
+    async def get_manga(
+        q: str, limit: int = 10, offset: int = 0
+    ) -> ToolResult:
         """Search manga on MyAnimeList."""
         try:
-            return await client().get_public(
-                "/manga",
-                params={
-                    "q": q,
-                    "limit": clamp_limit(limit, 100),
-                    "offset": max(0, offset),
-                    "fields": build_fields(None, _DEFAULT_MANGA_FIELDS),
-                },
+            return _tool_result(
+                await client().get_public(
+                    "/manga",
+                    params={
+                        "q": q,
+                        "limit": clamp_limit(limit, 100),
+                        "offset": max(0, offset),
+                        "fields": build_fields(None, _DEFAULT_MANGA_FIELDS),
+                    },
+                )
             )
         except _TOOL_ERRORS as e:
-            return api_error_payload(e)
+            return _tool_result(api_error_payload(e))
 
     @mcp.tool(annotations=READ_ONLY)
-    async def get_manga_details(manga_id: int) -> dict:
+    async def get_manga_details(manga_id: int) -> ToolResult:
         """Fetch manga details by MAL ID."""
         try:
             fields_param = build_fields(None, MangaFields)
-            return await client().get_public(
-                f"/manga/{manga_id}", params={"fields": fields_param}
+            return _tool_result(
+                await client().get_public(
+                    f"/manga/{manga_id}", params={"fields": fields_param}
+                )
             )
         except _TOOL_ERRORS as e:
-            return api_error_payload(e)
+            return _tool_result(api_error_payload(e))
 
     @mcp.tool(annotations=READ_ONLY)
     async def get_manga_ranking(
@@ -299,7 +329,7 @@ def register_tools(mcp: FastMCP):
         limit: int = 100,
         offset: int = 0,
         fields: list[MangaFields] | None = None,
-    ) -> dict:
+    ) -> ToolResult:
         """Fetch manga rankings from MyAnimeList."""
         try:
             params: dict[str, object] = {
@@ -308,9 +338,11 @@ def register_tools(mcp: FastMCP):
                 "offset": max(0, offset),
             }
             params["fields"] = build_fields(fields, _DEFAULT_MANGA_FIELDS)
-            return await client().get_public("/manga/ranking", params=params)
+            return _tool_result(
+                await client().get_public("/manga/ranking", params=params)
+            )
         except _TOOL_ERRORS as e:
-            return api_error_payload(e)
+            return _tool_result(api_error_payload(e))
 
     @mcp.tool(annotations=READ_ONLY)
     async def get_manga_list(
@@ -320,7 +352,7 @@ def register_tools(mcp: FastMCP):
         limit: int = 10,
         offset: int = 0,
         nsfw: bool = False,
-    ) -> dict:
+    ) -> ToolResult:
         """Fetch a public MyAnimeList manga list for a user."""
         try:
             params: dict[str, object] = {
@@ -336,11 +368,14 @@ def register_tools(mcp: FastMCP):
             params["fields"] = _with_list_status(
                 build_fields(None, _DEFAULT_MANGA_FIELDS)
             )
-            return await client().get_public(
-                f"/users/{quote(username, safe='')}/mangalist", params=params
+            return _tool_result(
+                await client().get_public(
+                    f"/users/{quote(username, safe='')}/mangalist",
+                    params=params,
+                )
             )
         except _TOOL_ERRORS as e:
-            return api_error_payload(e)
+            return _tool_result(api_error_payload(e))
 
     @mcp.tool(annotations=READ_ONLY)
     async def get_my_anime_list(
@@ -350,7 +385,7 @@ def register_tools(mcp: FastMCP):
         offset: int = 0,
         fields: list[AnimeFields] | None = None,
         nsfw: bool = False,
-    ) -> dict:
+    ) -> ToolResult:
         """Fetch the authenticated user's MyAnimeList anime list."""
         try:
             params: dict[str, object] = {
@@ -366,11 +401,13 @@ def register_tools(mcp: FastMCP):
             )
             if nsfw:
                 params["nsfw"] = "true"
-            return await client().get_authed(
-                "/users/@me/animelist", await token(), params=params
+            return _tool_result(
+                await client().get_authed(
+                    "/users/@me/animelist", await token(), params=params
+                )
             )
         except _TOOL_ERRORS as e:
-            return api_error_payload(e)
+            return _tool_result(api_error_payload(e))
 
     @mcp.tool(annotations=READ_ONLY)
     async def get_my_manga_list(
@@ -380,7 +417,7 @@ def register_tools(mcp: FastMCP):
         offset: int = 0,
         fields: list[MangaFields] | None = None,
         nsfw: bool = False,
-    ) -> dict:
+    ) -> ToolResult:
         """Fetch the authenticated user's MyAnimeList manga list."""
         try:
             params: dict[str, object] = {
@@ -396,36 +433,40 @@ def register_tools(mcp: FastMCP):
             )
             if nsfw:
                 params["nsfw"] = "true"
-            return await client().get_authed(
-                "/users/@me/mangalist", await token(), params=params
+            return _tool_result(
+                await client().get_authed(
+                    "/users/@me/mangalist", await token(), params=params
+                )
             )
         except _TOOL_ERRORS as e:
-            return api_error_payload(e)
+            return _tool_result(api_error_payload(e))
 
     # Forum
     @mcp.tool(annotations=READ_ONLY)
-    async def get_forum_boards() -> dict:
+    async def get_forum_boards() -> ToolResult:
         """Fetch MyAnimeList forum boards."""
         try:
-            return await client().get_public("/forum/boards")
+            return _tool_result(await client().get_public("/forum/boards"))
         except _TOOL_ERRORS as e:
-            return api_error_payload(e)
+            return _tool_result(api_error_payload(e))
 
     @mcp.tool(annotations=READ_ONLY)
     async def get_forum_topic(
         topic_id: int, limit: int = 100, offset: int = 0
-    ) -> dict:
+    ) -> ToolResult:
         """Fetch a MyAnimeList forum topic by ID."""
         try:
-            return await client().get_public(
-                f"/forum/topic/{topic_id}",
-                params={
-                    "limit": clamp_limit(limit, 100),
-                    "offset": max(0, offset),
-                },
+            return _tool_result(
+                await client().get_public(
+                    f"/forum/topic/{topic_id}",
+                    params={
+                        "limit": clamp_limit(limit, 100),
+                        "offset": max(0, offset),
+                    },
+                )
             )
         except _TOOL_ERRORS as e:
-            return api_error_payload(e)
+            return _tool_result(api_error_payload(e))
 
     @mcp.tool(annotations=READ_ONLY)
     async def get_forum_topics(
@@ -437,7 +478,7 @@ def register_tools(mcp: FastMCP):
         q: str | None = None,
         topic_user_name: str | None = None,
         user_name: str | None = None,
-    ) -> dict:
+    ) -> ToolResult:
         """Fetch MyAnimeList forum topics with optional filters."""
         try:
             params: dict[str, object] = {
@@ -455,81 +496,93 @@ def register_tools(mcp: FastMCP):
                 params["topic_user_name"] = topic_user_name
             if user_name:
                 params["user_name"] = user_name
-            return await client().get_public("/forum/topics", params=params)
+            return _tool_result(
+                await client().get_public("/forum/topics", params=params)
+            )
         except _TOOL_ERRORS as e:
-            return api_error_payload(e)
+            return _tool_result(api_error_payload(e))
 
     # Auth/account helpers
     @mcp.tool(annotations=READ_ONLY)
-    async def mal_auth_status() -> dict:
+    async def mal_auth_status() -> ToolResult:
         """Check whether this MCP has stored MyAnimeList OAuth tokens."""
-        return await get_auth_status()
+        return _tool_result(await get_auth_status())
 
     @mcp.tool(annotations=MUTATING)
-    async def mal_auth_revoke() -> dict:
+    async def mal_auth_revoke() -> ToolResult:
         """Clear locally stored MyAnimeList OAuth tokens."""
-        return revoke_auth()
+        return _tool_result(revoke_auth())
 
     @mcp.tool(annotations=MUTATING)
-    async def mal_auth_login() -> dict:
+    async def mal_auth_login() -> ToolResult:
         """Start a non-blocking MyAnimeList OAuth login and return the authorization URL."""
-        return login_initiate()
+        return _tool_result(login_initiate())
 
     @mcp.tool(annotations=READ_ONLY)
-    async def mal_auth_login_status() -> dict:
+    async def mal_auth_login_status() -> ToolResult:
         """Check whether a MyAnimeList OAuth login is pending, completed, or not authenticated."""
-        return await login_status()
+        return _tool_result(await login_status())
 
     @mcp.tool(annotations=READ_ONLY)
-    async def get_suggested_anime(limit: int = 10, offset: int = 0) -> dict:
+    async def get_suggested_anime(
+        limit: int = 10, offset: int = 0
+    ) -> ToolResult:
         """Fetch suggested anime for the authenticated user."""
         try:
-            return await client().get_authed(
-                "/anime/suggestions",
-                await token(),
-                params={
-                    "limit": clamp_limit(limit, 100),
-                    "offset": max(0, offset),
-                    "fields": build_fields(None, _DEFAULT_ANIME_FIELDS),
-                },
+            return _tool_result(
+                await client().get_authed(
+                    "/anime/suggestions",
+                    await token(),
+                    params={
+                        "limit": clamp_limit(limit, 100),
+                        "offset": max(0, offset),
+                        "fields": build_fields(None, _DEFAULT_ANIME_FIELDS),
+                    },
+                )
             )
         except _TOOL_ERRORS as e:
-            return api_error_payload(e)
+            return _tool_result(api_error_payload(e))
 
     @mcp.tool(annotations=READ_ONLY)
     async def get_user_profile(
         fields: str | None = "anime_statistics",
-    ) -> dict:
+    ) -> ToolResult:
         """Fetch the authenticated user's MyAnimeList profile, including anime statistics by default."""
         try:
             params = {"fields": fields} if fields else None
-            return await client().get_authed(
-                "/users/@me", await token(), params=params
+            return _tool_result(
+                await client().get_authed(
+                    "/users/@me", await token(), params=params
+                )
             )
         except _TOOL_ERRORS as e:
-            return api_error_payload(e)
+            return _tool_result(api_error_payload(e))
 
     @mcp.tool(annotations=MUTATING)
-    async def delete_myanimelist_item(anime_id: int) -> dict:
+    async def delete_myanimelist_item(anime_id: int) -> ToolResult:
         """Delete an anime from the authenticated user's MyAnimeList."""
         try:
             await client().delete_authed(
                 f"/anime/{anime_id}/my_list_status", await token()
             )
-            return {"message": f"Anime ID {anime_id} deleted successfully"}
+            return _tool_result(
+                {"message": f"Anime ID {anime_id} deleted successfully"}
+            )
         except _TOOL_ERRORS as e:
-            return api_error_payload(e)
+            return _tool_result(api_error_payload(e))
 
     @mcp.tool(annotations=MUTATING)
-    async def delete_mymangalist_item(manga_id: int) -> dict:
+    async def delete_mymangalist_item(manga_id: int) -> ToolResult:
         """Delete a manga from the authenticated user's MyAnimeList."""
         try:
             await client().delete_authed(
                 f"/manga/{manga_id}/my_list_status", await token()
             )
-            return {"message": f"Manga ID {manga_id} deleted successfully"}
+            return _tool_result(
+                {"message": f"Manga ID {manga_id} deleted successfully"}
+            )
         except _TOOL_ERRORS as e:
-            return api_error_payload(e)
+            return _tool_result(api_error_payload(e))
 
     @mcp.tool(annotations=MUTATING)
     async def update_myanimelist(
@@ -570,7 +623,7 @@ def register_tools(mcp: FastMCP):
             str | None,
             Field(description="Comments about the anime", max_length=1000),
         ] = None,
-    ) -> dict:
+    ) -> ToolResult:
         """Update an anime's status in the authenticated user's MyAnimeList."""
         try:
             fields = {
@@ -586,14 +639,20 @@ def register_tools(mcp: FastMCP):
             }
             fields = {k: v for k, v in fields.items() if v is not None}
             if not fields:
-                return {
-                    "error": "At least one field must be provided to update the anime"
-                }
-            return await client().patch_authed(
-                f"/anime/{anime_id}/my_list_status", await token(), data=fields
+                return _tool_result(
+                    {
+                        "error": "At least one field must be provided to update the anime"
+                    }
+                )
+            return _tool_result(
+                await client().patch_authed(
+                    f"/anime/{anime_id}/my_list_status",
+                    await token(),
+                    data=fields,
+                )
             )
         except _TOOL_ERRORS as e:
-            return api_error_payload(e)
+            return _tool_result(api_error_payload(e))
 
     @mcp.tool(annotations=MUTATING)
     async def update_mymangalist(
@@ -636,7 +695,7 @@ def register_tools(mcp: FastMCP):
             str | None,
             Field(description="Comments about the manga", max_length=1000),
         ] = None,
-    ) -> dict:
+    ) -> ToolResult:
         """Update a manga's status in the authenticated user's MyAnimeList."""
         try:
             fields = {
@@ -653,17 +712,23 @@ def register_tools(mcp: FastMCP):
             }
             fields = {k: v for k, v in fields.items() if v is not None}
             if not fields:
-                return {
-                    "error": "At least one field must be provided to update the manga"
-                }
-            return await client().patch_authed(
-                f"/manga/{manga_id}/my_list_status", await token(), data=fields
+                return _tool_result(
+                    {
+                        "error": "At least one field must be provided to update the manga"
+                    }
+                )
+            return _tool_result(
+                await client().patch_authed(
+                    f"/manga/{manga_id}/my_list_status",
+                    await token(),
+                    data=fields,
+                )
             )
         except _TOOL_ERRORS as e:
-            return api_error_payload(e)
+            return _tool_result(api_error_payload(e))
 
     @mcp.tool(annotations=READ_ONLY)
-    async def get_upcoming_anime_episodes(hours: int = 36) -> dict:
+    async def get_upcoming_anime_episodes(hours: int = 36) -> ToolResult:
         """Fetch upcoming episode air times for the authenticated user's 'watching' and 'plan to watch' anime, from AniList.
 
         Times are the original (Japanese) broadcast, not streaming releases."""
@@ -674,16 +739,18 @@ def register_tools(mcp: FastMCP):
                 *await own_anime_list(access_token, AnimeStatus.PLANNING),
             ]
             schedules = await fetch_upcoming_episodes(airing_ids(anime))
-            return upcoming_episodes(
-                anime, schedules, hours=normalize_episode_window(hours)
+            return _tool_result(
+                upcoming_episodes(
+                    anime, schedules, hours=normalize_episode_window(hours)
+                )
             )
         except AniListError as e:
-            return e.payload()
+            return _tool_result(e.payload())
         except _TOOL_ERRORS as e:
-            return api_error_payload(e)
+            return _tool_result(api_error_payload(e))
 
     @mcp.tool(annotations=READ_ONLY)
-    async def get_watch_queue() -> dict:
+    async def get_watch_queue() -> ToolResult:
         """Build a watch queue digest from the authenticated user's 'watching' anime list and AniList airing schedules.
 
         Returns per-anime watched episode counts against latest released episodes (from AniList or total episode metadata)
@@ -691,20 +758,20 @@ def register_tools(mcp: FastMCP):
         try:
             anime = await own_anime_list(await token(), AnimeStatus.WATCHING)
             schedules = await fetch_upcoming_episodes(airing_ids(anime))
-            return build_watch_queue(anime, schedules)
+            return _tool_result(build_watch_queue(anime, schedules))
         except AniListError as e:
-            return e.payload()
+            return _tool_result(e.payload())
         except _TOOL_ERRORS as e:
-            return api_error_payload(e)
+            return _tool_result(api_error_payload(e))
 
     @mcp.tool(annotations=READ_ONLY)
-    async def get_mal_news(limit: int = 10) -> dict:
+    async def get_mal_news(limit: int = 10) -> ToolResult:
         """Fetch recent anime/manga news articles from MyAnimeList RSS feed."""
         try:
             limit = clamp_limit(limit, _MAL_NEWS_LIMIT)
             async with httpx.AsyncClient(timeout=30) as client:
                 response = await client.get(_MAL_NEWS_RSS_URL)
                 response.raise_for_status()
-            return parse_mal_news_rss(response.text, limit)
+            return _tool_result(parse_mal_news_rss(response.text, limit))
         except (*_TOOL_ERRORS, ElementTree.ParseError) as e:
-            return api_error_payload(e)
+            return _tool_result(api_error_payload(e))

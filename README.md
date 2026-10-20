@@ -73,6 +73,8 @@ If Hermes is managed via Docker, persist this repository and the token path as m
 
 Search, ranking, seasonal, list and suggestion results always include each title's id, title, alternative titles, main picture, nsfw rating and mean score. Tools with a `fields` argument add the requested fields to these.
 
+Every tool returns its data as a single text block, without structured content: [TOON](https://toonformat.dev) when that is shorter than minified JSON, and minified JSON otherwise. Both decode to the same JSON object.
+
 ### Anime
 
 - `get_anime`: search anime.
