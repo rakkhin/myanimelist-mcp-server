@@ -11,6 +11,7 @@ import secrets
 import socketserver
 import time
 import urllib.parse
+from dataclasses import replace
 from typing import Any
 
 import httpx
@@ -286,6 +287,19 @@ def revoke_auth() -> dict[str, Any]:
         "provider": "myanimelist",
         "message": "Tokens revoked",
     }
+
+
+def expire_access_token(rejected_token: str) -> None:
+    """Mark the stored access token as expired after MAL rejected it.
+
+    MAL can revoke a token before its expiry. The refresh token is kept, so
+    the next get_mal_access_token refreshes, and login_initiate starts a new
+    login when that fails. A token replaced in the meantime is left alone.
+    """
+    store = _token_store()
+    tokens = store.load()
+    if tokens is not None and tokens.access_token == rejected_token:
+        store.save(replace(tokens, expires_at=0.0))
 
 
 async def get_mal_access_token() -> str:

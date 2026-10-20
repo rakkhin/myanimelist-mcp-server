@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Awaitable, Callable
 from typing import Annotated
 from urllib.parse import quote
 from xml.etree import ElementTree
@@ -15,6 +16,7 @@ from pydantic import Field
 from utils.anilist import AniListError, fetch_upcoming_episodes
 from utils.auth import (
     MALAuthError,
+    expire_access_token,
     get_auth_status,
     get_mal_access_token,
     login_initiate,
@@ -156,22 +158,37 @@ def register_tools(mcp: FastMCP):
             raise ValueError("No valid MyAnimeList access token available")
         return access_token
 
-    async def own_anime_list(
-        access_token: str, status: AnimeStatus
-    ) -> list[dict]:
+    async def authed(request: Callable[[str], Awaitable[dict]]) -> dict:
+        """Send an authenticated request, retrying once if MAL rejects the token.
+
+        MAL can revoke a token before its stored expiry. It answers 401
+        without running the request, so retrying updates and deletes is safe.
+        """
+        access_token = await token()
+        try:
+            return await request(access_token)
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code != httpx.codes.UNAUTHORIZED:
+                raise
+        expire_access_token(access_token)
+        return await request(await token())
+
+    async def own_anime_list(status: AnimeStatus) -> list[dict]:
         # Fields the episode schedule tools need; MAL always adds id, title.
         fields = _with_list_status(
             build_fields([AnimeFields.NUM_EPISODES, AnimeFields.STATUS], [])
         )
-        response = await client().get_authed(
-            "/users/@me/animelist",
-            access_token,
-            params={
-                "status": status,
-                "limit": 1000,
-                "offset": 0,
-                "fields": fields,
-            },
+        response = await authed(
+            lambda access_token: client().get_authed(
+                "/users/@me/animelist",
+                access_token,
+                params={
+                    "status": status,
+                    "limit": 1000,
+                    "offset": 0,
+                    "fields": fields,
+                },
+            )
         )
         return response.get("data", []) if isinstance(response, dict) else []
 
@@ -402,8 +419,10 @@ def register_tools(mcp: FastMCP):
             if nsfw:
                 params["nsfw"] = "true"
             return _tool_result(
-                await client().get_authed(
-                    "/users/@me/animelist", await token(), params=params
+                await authed(
+                    lambda access_token: client().get_authed(
+                        "/users/@me/animelist", access_token, params=params
+                    )
                 )
             )
         except _TOOL_ERRORS as e:
@@ -434,8 +453,10 @@ def register_tools(mcp: FastMCP):
             if nsfw:
                 params["nsfw"] = "true"
             return _tool_result(
-                await client().get_authed(
-                    "/users/@me/mangalist", await token(), params=params
+                await authed(
+                    lambda access_token: client().get_authed(
+                        "/users/@me/mangalist", access_token, params=params
+                    )
                 )
             )
         except _TOOL_ERRORS as e:
@@ -530,14 +551,18 @@ def register_tools(mcp: FastMCP):
         """Fetch suggested anime for the authenticated user."""
         try:
             return _tool_result(
-                await client().get_authed(
-                    "/anime/suggestions",
-                    await token(),
-                    params={
-                        "limit": clamp_limit(limit, 100),
-                        "offset": max(0, offset),
-                        "fields": build_fields(None, _DEFAULT_ANIME_FIELDS),
-                    },
+                await authed(
+                    lambda access_token: client().get_authed(
+                        "/anime/suggestions",
+                        access_token,
+                        params={
+                            "limit": clamp_limit(limit, 100),
+                            "offset": max(0, offset),
+                            "fields": build_fields(
+                                None, _DEFAULT_ANIME_FIELDS
+                            ),
+                        },
+                    )
                 )
             )
         except _TOOL_ERRORS as e:
@@ -551,8 +576,10 @@ def register_tools(mcp: FastMCP):
         try:
             params = {"fields": fields} if fields else None
             return _tool_result(
-                await client().get_authed(
-                    "/users/@me", await token(), params=params
+                await authed(
+                    lambda access_token: client().get_authed(
+                        "/users/@me", access_token, params=params
+                    )
                 )
             )
         except _TOOL_ERRORS as e:
@@ -562,8 +589,10 @@ def register_tools(mcp: FastMCP):
     async def delete_myanimelist_item(anime_id: int) -> ToolResult:
         """Delete an anime from the authenticated user's MyAnimeList."""
         try:
-            await client().delete_authed(
-                f"/anime/{anime_id}/my_list_status", await token()
+            await authed(
+                lambda access_token: client().delete_authed(
+                    f"/anime/{anime_id}/my_list_status", access_token
+                )
             )
             return _tool_result(
                 {"message": f"Anime ID {anime_id} deleted successfully"}
@@ -575,8 +604,10 @@ def register_tools(mcp: FastMCP):
     async def delete_mymangalist_item(manga_id: int) -> ToolResult:
         """Delete a manga from the authenticated user's MyAnimeList."""
         try:
-            await client().delete_authed(
-                f"/manga/{manga_id}/my_list_status", await token()
+            await authed(
+                lambda access_token: client().delete_authed(
+                    f"/manga/{manga_id}/my_list_status", access_token
+                )
             )
             return _tool_result(
                 {"message": f"Manga ID {manga_id} deleted successfully"}
@@ -645,10 +676,12 @@ def register_tools(mcp: FastMCP):
                     }
                 )
             return _tool_result(
-                await client().patch_authed(
-                    f"/anime/{anime_id}/my_list_status",
-                    await token(),
-                    data=fields,
+                await authed(
+                    lambda access_token: client().patch_authed(
+                        f"/anime/{anime_id}/my_list_status",
+                        access_token,
+                        data=fields,
+                    )
                 )
             )
         except _TOOL_ERRORS as e:
@@ -718,10 +751,12 @@ def register_tools(mcp: FastMCP):
                     }
                 )
             return _tool_result(
-                await client().patch_authed(
-                    f"/manga/{manga_id}/my_list_status",
-                    await token(),
-                    data=fields,
+                await authed(
+                    lambda access_token: client().patch_authed(
+                        f"/manga/{manga_id}/my_list_status",
+                        access_token,
+                        data=fields,
+                    )
                 )
             )
         except _TOOL_ERRORS as e:
@@ -733,10 +768,9 @@ def register_tools(mcp: FastMCP):
 
         Times are the original (Japanese) broadcast, not streaming releases."""
         try:
-            access_token = await token()
             anime = [
-                *await own_anime_list(access_token, AnimeStatus.WATCHING),
-                *await own_anime_list(access_token, AnimeStatus.PLANNING),
+                *await own_anime_list(AnimeStatus.WATCHING),
+                *await own_anime_list(AnimeStatus.PLANNING),
             ]
             schedules = await fetch_upcoming_episodes(airing_ids(anime))
             return _tool_result(
@@ -756,7 +790,7 @@ def register_tools(mcp: FastMCP):
         Returns per-anime watched episode counts against latest released episodes (from AniList or total episode metadata)
         plus aggregate totals. Latest released is unknown for titles that are neither finished nor scheduled on AniList."""
         try:
-            anime = await own_anime_list(await token(), AnimeStatus.WATCHING)
+            anime = await own_anime_list(AnimeStatus.WATCHING)
             schedules = await fetch_upcoming_episodes(airing_ids(anime))
             return _tool_result(build_watch_queue(anime, schedules))
         except AniListError as e:

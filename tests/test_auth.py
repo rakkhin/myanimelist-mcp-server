@@ -974,6 +974,71 @@ def test_revoke_auth_clears_tokens_and_login_state(login_env):
     assert state == {}
 
 
+def test_expire_access_token_keeps_refresh_token(login_env):
+    store, _ = login_env
+    store.save(
+        StoredTokens(
+            access_token="rejected",
+            refresh_token="refresh",
+            expires_at=time.time() + 3600,
+        )
+    )
+
+    auth.expire_access_token("rejected")
+
+    tokens = store.load()
+    assert tokens.access_token == "rejected"
+    assert tokens.refresh_token == "refresh"
+    assert not tokens.is_valid
+
+
+def test_expire_access_token_leaves_replaced_token_alone(login_env):
+    store, _ = login_env
+    refreshed = StoredTokens(
+        access_token="refreshed",
+        refresh_token="refresh",
+        expires_at=time.time() + 3600,
+    )
+    store.save(refreshed)
+
+    auth.expire_access_token("rejected")
+
+    assert store.load() == refreshed
+
+
+def test_expire_access_token_without_tokens_does_nothing(login_env):
+    store, _ = login_env
+
+    auth.expire_access_token("rejected")
+
+    assert not store.path.exists()
+
+
+def test_login_initiate_starts_login_after_token_was_rejected(
+    login_env, oauth_client, monkeypatch
+):
+    store, state = login_env
+    store.save(
+        StoredTokens(
+            access_token="rejected",
+            refresh_token=None,
+            expires_at=time.time() + 3600,
+        )
+    )
+    monkeypatch.setattr(auth, "_watch_login", AsyncMock())
+    auth.expire_access_token("rejected")
+
+    async def initiate():
+        result = auth.login_initiate()
+        await state["task"]
+        return result
+
+    result = asyncio.run(initiate())
+
+    assert result["status"] == "pending"
+    assert result["authorization_url"]
+
+
 def test_get_mal_access_token_without_tokens_raises_auth_error(login_env):
     with pytest.raises(auth.MALAuthError, match="mal_auth_login"):
         asyncio.run(auth.get_mal_access_token())

@@ -1,5 +1,6 @@
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock, call
 
+import httpx
 import pytest
 from fastmcp.exceptions import ToolError
 
@@ -85,6 +86,52 @@ class TestUpdateTools:
 
         assert "mal_auth_login" in result["error"]
         mal.client.patch_authed.assert_not_awaited()
+
+
+def _unauthorized():
+    request = httpx.Request("PATCH", "https://api.myanimelist.net/v2/x")
+    response = httpx.Response(401, request=request)
+    return httpx.HTTPStatusError("401", request=request, response=response)
+
+
+class TestRejectedToken:
+    @pytest.fixture(autouse=True)
+    def rejected_then_refreshed(self, mal, monkeypatch):
+        monkeypatch.setattr(
+            tools,
+            "get_mal_access_token",
+            AsyncMock(side_effect=["rejected-token", "refreshed-token"]),
+        )
+        monkeypatch.setattr(tools, "expire_access_token", Mock())
+
+    @pytest.mark.parametrize(("name", "id_arg", "kind"), UPDATE_TOOLS)
+    def test_update_is_resent_with_refreshed_token(
+        self, mal, name, id_arg, kind
+    ):
+        mal.client.patch_authed.side_effect = [
+            _unauthorized(),
+            {"status": "watching"},
+        ]
+
+        result = mal.call(name, **{id_arg: 1}, score=5)
+
+        assert result == {"status": "watching"}
+        assert mal.client.patch_authed.await_args_list[-1] == call(
+            f"/{kind}/1/my_list_status", "refreshed-token", data={"score": 5}
+        )
+
+    @pytest.mark.parametrize(("name", "id_arg", "kind", "label"), DELETE_TOOLS)
+    def test_delete_is_resent_with_refreshed_token(
+        self, mal, name, id_arg, kind, label
+    ):
+        mal.client.delete_authed.side_effect = [_unauthorized(), {"ok": True}]
+
+        result = mal.call(name, **{id_arg: 1})
+
+        assert result == {"message": f"{label} ID 1 deleted successfully"}
+        assert mal.client.delete_authed.await_args_list[-1] == call(
+            f"/{kind}/1/my_list_status", "refreshed-token"
+        )
 
 
 class TestDeleteTools:
