@@ -20,6 +20,7 @@ from utils.schemas import (
     MangaStatusSort,
     Season,
 )
+from utils.serialization import format_tool_payload
 
 DEFAULT_ANIME_FIELDS = (
     f"{AnimeFields.ID},{AnimeFields.TITLE},{AnimeFields.ALTERNATIVE_TITLES},"
@@ -100,6 +101,56 @@ class TestToolRegistration:
         }
         assert read_only == hints.keys() - mutating
         assert len(read_only) == 21
+
+    def test_every_tool_declares_an_object_output_schema(self, mal):
+        tools = asyncio.run(mal.mcp.list_tools())
+
+        object_schema = {"type": "object", "additionalProperties": True}
+        schemas = {t.name: t.output_schema for t in tools}
+        assert schemas == {name: object_schema for name in schemas}
+
+
+class TestToolResults:
+    def test_text_block_is_toon_when_shorter_than_json(self, mal):
+        boards = {"data": [{"id": 1, "title": "A"}, {"id": 2, "title": "B"}]}
+        mal.client.get_public.return_value = boards
+
+        result = mal.call_over_mcp("get_forum_boards", {})
+
+        assert [block.text for block in result.content] == [
+            "data[2]{id,title}:\n  1,A\n  2,B"
+        ]
+        assert result.structured_content == boards
+
+    def test_text_block_is_minified_json_otherwise(self, mal):
+        anime = {
+            "data": [
+                {"node": {"id": 1, "synonyms": ["A", "B"]}},
+                {"node": {"id": 2, "synonyms": ["C"]}},
+            ]
+        }
+        mal.client.get_public.return_value = anime
+
+        result = mal.call_over_mcp("get_anime", {"q": "x"})
+
+        assert [block.text for block in result.content] == [
+            (
+                '{"data":[{"node":{"id":1,"synonyms":["A","B"]}},'
+                '{"node":{"id":2,"synonyms":["C"]}}]}'
+            )
+        ]
+        assert result.structured_content == anime
+
+    def test_error_payload_is_serialized_the_same_way(self, mal):
+        mal.client.get_public.side_effect = MALAPIError("MAL API timed out")
+
+        result = mal.call_over_mcp("get_anime", {"q": "x"})
+
+        assert not result.is_error
+        assert [block.text for block in result.content] == [
+            format_tool_payload(result.structured_content)
+        ]
+        assert result.structured_content["error"] == "MAL API timed out"
 
     def test_get_anime_list_status_is_optional_in_schema(self):
         from fastmcp import FastMCP
@@ -735,7 +786,9 @@ class TestToolRegistration:
             register_tools(mcp)
 
             tool = asyncio.run(mcp.get_tool("get_my_anime_list"))
-            result = asyncio.run(tool.fn(None, None, 10, 0, None))
+            result = asyncio.run(
+                tool.fn(None, None, 10, 0, None)
+            ).structured_content
 
             assert "error" in result
             mock_client.get_authed.assert_not_called()
@@ -756,7 +809,9 @@ class TestToolRegistration:
             register_tools(mcp)
 
             tool = asyncio.run(mcp.get_tool("get_my_manga_list"))
-            result = asyncio.run(tool.fn(None, None, 10, 0, None))
+            result = asyncio.run(
+                tool.fn(None, None, 10, 0, None)
+            ).structured_content
 
             assert "error" in result
             mock_client.get_authed.assert_not_called()
@@ -934,7 +989,7 @@ class TestGetMalNews:
             register_tools(mcp)
 
             tool = asyncio.run(mcp.get_tool("get_mal_news"))
-            result = asyncio.run(tool.fn(5))
+            result = asyncio.run(tool.fn(5)).structured_content
 
             mock_http.get.assert_called_once_with(
                 "https://myanimelist.net/rss/news.xml"
@@ -1000,7 +1055,7 @@ class TestGetMalNews:
             register_tools(mcp)
 
             tool = asyncio.run(mcp.get_tool("get_mal_news"))
-            result = asyncio.run(tool.fn(10))
+            result = asyncio.run(tool.fn(10)).structured_content
 
             assert "error" in result
             assert "503" in result["error"]
@@ -1024,7 +1079,7 @@ class TestSeasonalAnimeErrorHandling:
             tool = asyncio.run(mcp.get_tool("get_seasonal_anime"))
             result = asyncio.run(
                 tool.fn(Season.SUMMER, 2026, None, 10, 0, None)
-            )
+            ).structured_content
 
             assert "error" in result
             assert result["error"] == "MAL API returned an empty error"
@@ -1048,7 +1103,7 @@ class TestSeasonalAnimeErrorHandling:
             tool = asyncio.run(mcp.get_tool("get_seasonal_anime"))
             result = asyncio.run(
                 tool.fn(Season.SUMMER, 2026, None, 10, 0, None)
-            )
+            ).structured_content
 
             assert "error" in result
             assert "invalid season" in result["error"]
@@ -1067,7 +1122,7 @@ class TestSeasonalAnimeErrorHandling:
             tool = asyncio.run(mcp.get_tool("get_seasonal_anime"))
             result = asyncio.run(
                 tool.fn(Season.SUMMER, 2026, None, 10, 0, None)
-            )
+            ).structured_content
 
             assert "error" in result
             assert result["error"] == "ValueError"
@@ -1094,7 +1149,7 @@ class TestSeasonalAnimeErrorHandling:
             tool = asyncio.run(mcp.get_tool("get_seasonal_anime"))
             result = asyncio.run(
                 tool.fn(Season.SUMMER, 2026, None, 10, 0, None)
-            )
+            ).structured_content
 
             assert "error" in result
             assert "503" in result["error"]
