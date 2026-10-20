@@ -3,6 +3,7 @@ from unittest.mock import AsyncMock, Mock, patch
 from xml.etree.ElementTree import ParseError
 
 import pytest
+from payloads import tool_payload
 
 from tools.tools import (
     parse_mal_news_rss,
@@ -20,7 +21,6 @@ from utils.schemas import (
     MangaStatusSort,
     Season,
 )
-from utils.serialization import format_tool_payload
 
 DEFAULT_ANIME_FIELDS = (
     f"{AnimeFields.ID},{AnimeFields.TITLE},{AnimeFields.ALTERNATIVE_TITLES},"
@@ -102,12 +102,13 @@ class TestToolRegistration:
         assert read_only == hints.keys() - mutating
         assert len(read_only) == 21
 
-    def test_every_tool_declares_an_object_output_schema(self, mal):
+    def test_no_tool_declares_an_output_schema(self, mal):
+        # The text block is the whole result; an output schema would
+        # require structured content.
         tools = asyncio.run(mal.mcp.list_tools())
 
-        object_schema = {"type": "object", "additionalProperties": True}
         schemas = {t.name: t.output_schema for t in tools}
-        assert schemas == {name: object_schema for name in schemas}
+        assert schemas == dict.fromkeys(schemas)
 
 
 class TestToolResults:
@@ -120,7 +121,7 @@ class TestToolResults:
         assert [block.text for block in result.content] == [
             "data[2]{id,title}:\n  1,A\n  2,B"
         ]
-        assert result.structured_content == boards
+        assert tool_payload(result) == boards
 
     def test_text_block_is_minified_json_otherwise(self, mal):
         anime = {
@@ -139,7 +140,7 @@ class TestToolResults:
                 '{"node":{"id":2,"synonyms":["C"]}}]}'
             )
         ]
-        assert result.structured_content == anime
+        assert tool_payload(result) == anime
 
     def test_error_payload_is_serialized_the_same_way(self, mal):
         mal.client.get_public.side_effect = MALAPIError("MAL API timed out")
@@ -147,10 +148,7 @@ class TestToolResults:
         result = mal.call_over_mcp("get_anime", {"q": "x"})
 
         assert not result.is_error
-        assert [block.text for block in result.content] == [
-            format_tool_payload(result.structured_content)
-        ]
-        assert result.structured_content["error"] == "MAL API timed out"
+        assert tool_payload(result)["error"] == "MAL API timed out"
 
     def test_get_anime_list_status_is_optional_in_schema(self):
         from fastmcp import FastMCP
@@ -786,9 +784,9 @@ class TestToolResults:
             register_tools(mcp)
 
             tool = asyncio.run(mcp.get_tool("get_my_anime_list"))
-            result = asyncio.run(
-                tool.fn(None, None, 10, 0, None)
-            ).structured_content
+            result = tool_payload(
+                asyncio.run(tool.fn(None, None, 10, 0, None))
+            )
 
             assert "error" in result
             mock_client.get_authed.assert_not_called()
@@ -809,9 +807,9 @@ class TestToolResults:
             register_tools(mcp)
 
             tool = asyncio.run(mcp.get_tool("get_my_manga_list"))
-            result = asyncio.run(
-                tool.fn(None, None, 10, 0, None)
-            ).structured_content
+            result = tool_payload(
+                asyncio.run(tool.fn(None, None, 10, 0, None))
+            )
 
             assert "error" in result
             mock_client.get_authed.assert_not_called()
@@ -989,7 +987,7 @@ class TestGetMalNews:
             register_tools(mcp)
 
             tool = asyncio.run(mcp.get_tool("get_mal_news"))
-            result = asyncio.run(tool.fn(5)).structured_content
+            result = tool_payload(asyncio.run(tool.fn(5)))
 
             mock_http.get.assert_called_once_with(
                 "https://myanimelist.net/rss/news.xml"
@@ -1055,7 +1053,7 @@ class TestGetMalNews:
             register_tools(mcp)
 
             tool = asyncio.run(mcp.get_tool("get_mal_news"))
-            result = asyncio.run(tool.fn(10)).structured_content
+            result = tool_payload(asyncio.run(tool.fn(10)))
 
             assert "error" in result
             assert "503" in result["error"]
@@ -1077,9 +1075,9 @@ class TestSeasonalAnimeErrorHandling:
             register_tools(mcp)
 
             tool = asyncio.run(mcp.get_tool("get_seasonal_anime"))
-            result = asyncio.run(
-                tool.fn(Season.SUMMER, 2026, None, 10, 0, None)
-            ).structured_content
+            result = tool_payload(
+                asyncio.run(tool.fn(Season.SUMMER, 2026, None, 10, 0, None))
+            )
 
             assert "error" in result
             assert result["error"] == "MAL API returned an empty error"
@@ -1101,9 +1099,9 @@ class TestSeasonalAnimeErrorHandling:
             register_tools(mcp)
 
             tool = asyncio.run(mcp.get_tool("get_seasonal_anime"))
-            result = asyncio.run(
-                tool.fn(Season.SUMMER, 2026, None, 10, 0, None)
-            ).structured_content
+            result = tool_payload(
+                asyncio.run(tool.fn(Season.SUMMER, 2026, None, 10, 0, None))
+            )
 
             assert "error" in result
             assert "invalid season" in result["error"]
@@ -1120,9 +1118,9 @@ class TestSeasonalAnimeErrorHandling:
             register_tools(mcp)
 
             tool = asyncio.run(mcp.get_tool("get_seasonal_anime"))
-            result = asyncio.run(
-                tool.fn(Season.SUMMER, 2026, None, 10, 0, None)
-            ).structured_content
+            result = tool_payload(
+                asyncio.run(tool.fn(Season.SUMMER, 2026, None, 10, 0, None))
+            )
 
             assert "error" in result
             assert result["error"] == "ValueError"
@@ -1147,9 +1145,9 @@ class TestSeasonalAnimeErrorHandling:
             register_tools(mcp)
 
             tool = asyncio.run(mcp.get_tool("get_seasonal_anime"))
-            result = asyncio.run(
-                tool.fn(Season.SUMMER, 2026, None, 10, 0, None)
-            ).structured_content
+            result = tool_payload(
+                asyncio.run(tool.fn(Season.SUMMER, 2026, None, 10, 0, None))
+            )
 
             assert "error" in result
             assert "503" in result["error"]

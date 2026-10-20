@@ -46,16 +46,14 @@ _TOOL_ERRORS = (MALAPIError, MALAuthError, httpx.HTTPError, ValueError)
 READ_ONLY = ToolAnnotations(read_only_hint=True)
 MUTATING = ToolAnnotations(read_only_hint=False)
 
-# Every tool returns an object. FastMCP derives no output schema from a
-# ToolResult return, so tools declare the one a dict return would get.
-_OBJECT_OUTPUT = {"type": "object", "additionalProperties": True}
-
 
 def _tool_result(data: dict) -> ToolResult:
-    """Wrap a payload: TOON or JSON text for the model, data for clients."""
-    return ToolResult(
-        content=format_tool_payload(data), structured_content=data
-    )
+    """Wrap a payload as the result's only content: TOON or JSON text.
+
+    No structured content: hosts such as Claude Code show the model that
+    instead of the text, and the spec expects JSON text next to it.
+    """
+    return ToolResult(content=format_tool_payload(data))
 
 
 # User list items hold the user's entry (status, score, progress) in
@@ -178,7 +176,7 @@ def register_tools(mcp: FastMCP):
         return response.get("data", []) if isinstance(response, dict) else []
 
     # Anime
-    @mcp.tool(annotations=READ_ONLY, output_schema=_OBJECT_OUTPUT)
+    @mcp.tool(annotations=READ_ONLY)
     async def get_anime(
         q: str, limit: int = 10, offset: int = 0
     ) -> ToolResult:
@@ -198,7 +196,7 @@ def register_tools(mcp: FastMCP):
         except _TOOL_ERRORS as e:
             return _tool_result(api_error_payload(e))
 
-    @mcp.tool(annotations=READ_ONLY, output_schema=_OBJECT_OUTPUT)
+    @mcp.tool(annotations=READ_ONLY)
     async def get_anime_details(anime_id: int) -> ToolResult:
         """Fetch anime details by MAL ID."""
         try:
@@ -211,7 +209,7 @@ def register_tools(mcp: FastMCP):
         except _TOOL_ERRORS as e:
             return _tool_result(api_error_payload(e))
 
-    @mcp.tool(annotations=READ_ONLY, output_schema=_OBJECT_OUTPUT)
+    @mcp.tool(annotations=READ_ONLY)
     async def get_anime_ranking(
         ranking_type: AnimeRanking = AnimeRanking.ALL,
         limit: int = 10,
@@ -232,7 +230,7 @@ def register_tools(mcp: FastMCP):
         except _TOOL_ERRORS as e:
             return _tool_result(api_error_payload(e))
 
-    @mcp.tool(annotations=READ_ONLY, output_schema=_OBJECT_OUTPUT)
+    @mcp.tool(annotations=READ_ONLY)
     async def get_seasonal_anime(
         season: Season,
         year: int,
@@ -258,7 +256,7 @@ def register_tools(mcp: FastMCP):
         except _TOOL_ERRORS as e:
             return _tool_result(api_error_payload(e))
 
-    @mcp.tool(annotations=READ_ONLY, output_schema=_OBJECT_OUTPUT)
+    @mcp.tool(annotations=READ_ONLY)
     async def get_anime_list(
         username: str,
         status: AnimeStatus | None = None,
@@ -292,7 +290,7 @@ def register_tools(mcp: FastMCP):
             return _tool_result(api_error_payload(e))
 
     # Manga
-    @mcp.tool(annotations=READ_ONLY, output_schema=_OBJECT_OUTPUT)
+    @mcp.tool(annotations=READ_ONLY)
     async def get_manga(
         q: str, limit: int = 10, offset: int = 0
     ) -> ToolResult:
@@ -312,7 +310,7 @@ def register_tools(mcp: FastMCP):
         except _TOOL_ERRORS as e:
             return _tool_result(api_error_payload(e))
 
-    @mcp.tool(annotations=READ_ONLY, output_schema=_OBJECT_OUTPUT)
+    @mcp.tool(annotations=READ_ONLY)
     async def get_manga_details(manga_id: int) -> ToolResult:
         """Fetch manga details by MAL ID."""
         try:
@@ -325,7 +323,7 @@ def register_tools(mcp: FastMCP):
         except _TOOL_ERRORS as e:
             return _tool_result(api_error_payload(e))
 
-    @mcp.tool(annotations=READ_ONLY, output_schema=_OBJECT_OUTPUT)
+    @mcp.tool(annotations=READ_ONLY)
     async def get_manga_ranking(
         ranking_type: MangaRanking = MangaRanking.ALL,
         limit: int = 100,
@@ -346,7 +344,7 @@ def register_tools(mcp: FastMCP):
         except _TOOL_ERRORS as e:
             return _tool_result(api_error_payload(e))
 
-    @mcp.tool(annotations=READ_ONLY, output_schema=_OBJECT_OUTPUT)
+    @mcp.tool(annotations=READ_ONLY)
     async def get_manga_list(
         username: str,
         status: MangaStatus | None = None,
@@ -379,7 +377,7 @@ def register_tools(mcp: FastMCP):
         except _TOOL_ERRORS as e:
             return _tool_result(api_error_payload(e))
 
-    @mcp.tool(annotations=READ_ONLY, output_schema=_OBJECT_OUTPUT)
+    @mcp.tool(annotations=READ_ONLY)
     async def get_my_anime_list(
         status: AnimeStatus | None = None,
         sort: AnimeStatusSort | None = None,
@@ -411,7 +409,7 @@ def register_tools(mcp: FastMCP):
         except _TOOL_ERRORS as e:
             return _tool_result(api_error_payload(e))
 
-    @mcp.tool(annotations=READ_ONLY, output_schema=_OBJECT_OUTPUT)
+    @mcp.tool(annotations=READ_ONLY)
     async def get_my_manga_list(
         status: MangaStatus | None = None,
         sort: MangaStatusSort | None = None,
@@ -444,7 +442,7 @@ def register_tools(mcp: FastMCP):
             return _tool_result(api_error_payload(e))
 
     # Forum
-    @mcp.tool(annotations=READ_ONLY, output_schema=_OBJECT_OUTPUT)
+    @mcp.tool(annotations=READ_ONLY)
     async def get_forum_boards() -> ToolResult:
         """Fetch MyAnimeList forum boards."""
         try:
@@ -452,7 +450,7 @@ def register_tools(mcp: FastMCP):
         except _TOOL_ERRORS as e:
             return _tool_result(api_error_payload(e))
 
-    @mcp.tool(annotations=READ_ONLY, output_schema=_OBJECT_OUTPUT)
+    @mcp.tool(annotations=READ_ONLY)
     async def get_forum_topic(
         topic_id: int, limit: int = 100, offset: int = 0
     ) -> ToolResult:
@@ -470,7 +468,7 @@ def register_tools(mcp: FastMCP):
         except _TOOL_ERRORS as e:
             return _tool_result(api_error_payload(e))
 
-    @mcp.tool(annotations=READ_ONLY, output_schema=_OBJECT_OUTPUT)
+    @mcp.tool(annotations=READ_ONLY)
     async def get_forum_topics(
         board_id: int | None = None,
         subboard_id: int | None = None,
@@ -505,27 +503,27 @@ def register_tools(mcp: FastMCP):
             return _tool_result(api_error_payload(e))
 
     # Auth/account helpers
-    @mcp.tool(annotations=READ_ONLY, output_schema=_OBJECT_OUTPUT)
+    @mcp.tool(annotations=READ_ONLY)
     async def mal_auth_status() -> ToolResult:
         """Check whether this MCP has stored MyAnimeList OAuth tokens."""
         return _tool_result(await get_auth_status())
 
-    @mcp.tool(annotations=MUTATING, output_schema=_OBJECT_OUTPUT)
+    @mcp.tool(annotations=MUTATING)
     async def mal_auth_revoke() -> ToolResult:
         """Clear locally stored MyAnimeList OAuth tokens."""
         return _tool_result(revoke_auth())
 
-    @mcp.tool(annotations=MUTATING, output_schema=_OBJECT_OUTPUT)
+    @mcp.tool(annotations=MUTATING)
     async def mal_auth_login() -> ToolResult:
         """Start a non-blocking MyAnimeList OAuth login and return the authorization URL."""
         return _tool_result(login_initiate())
 
-    @mcp.tool(annotations=READ_ONLY, output_schema=_OBJECT_OUTPUT)
+    @mcp.tool(annotations=READ_ONLY)
     async def mal_auth_login_status() -> ToolResult:
         """Check whether a MyAnimeList OAuth login is pending, completed, or not authenticated."""
         return _tool_result(await login_status())
 
-    @mcp.tool(annotations=READ_ONLY, output_schema=_OBJECT_OUTPUT)
+    @mcp.tool(annotations=READ_ONLY)
     async def get_suggested_anime(
         limit: int = 10, offset: int = 0
     ) -> ToolResult:
@@ -545,7 +543,7 @@ def register_tools(mcp: FastMCP):
         except _TOOL_ERRORS as e:
             return _tool_result(api_error_payload(e))
 
-    @mcp.tool(annotations=READ_ONLY, output_schema=_OBJECT_OUTPUT)
+    @mcp.tool(annotations=READ_ONLY)
     async def get_user_profile(
         fields: str | None = "anime_statistics",
     ) -> ToolResult:
@@ -560,7 +558,7 @@ def register_tools(mcp: FastMCP):
         except _TOOL_ERRORS as e:
             return _tool_result(api_error_payload(e))
 
-    @mcp.tool(annotations=MUTATING, output_schema=_OBJECT_OUTPUT)
+    @mcp.tool(annotations=MUTATING)
     async def delete_myanimelist_item(anime_id: int) -> ToolResult:
         """Delete an anime from the authenticated user's MyAnimeList."""
         try:
@@ -573,7 +571,7 @@ def register_tools(mcp: FastMCP):
         except _TOOL_ERRORS as e:
             return _tool_result(api_error_payload(e))
 
-    @mcp.tool(annotations=MUTATING, output_schema=_OBJECT_OUTPUT)
+    @mcp.tool(annotations=MUTATING)
     async def delete_mymangalist_item(manga_id: int) -> ToolResult:
         """Delete a manga from the authenticated user's MyAnimeList."""
         try:
@@ -586,7 +584,7 @@ def register_tools(mcp: FastMCP):
         except _TOOL_ERRORS as e:
             return _tool_result(api_error_payload(e))
 
-    @mcp.tool(annotations=MUTATING, output_schema=_OBJECT_OUTPUT)
+    @mcp.tool(annotations=MUTATING)
     async def update_myanimelist(
         anime_id: Annotated[
             int, Field(description="ID of the anime to update", ge=1)
@@ -656,7 +654,7 @@ def register_tools(mcp: FastMCP):
         except _TOOL_ERRORS as e:
             return _tool_result(api_error_payload(e))
 
-    @mcp.tool(annotations=MUTATING, output_schema=_OBJECT_OUTPUT)
+    @mcp.tool(annotations=MUTATING)
     async def update_mymangalist(
         manga_id: Annotated[
             int, Field(description="ID of the manga to update", ge=1)
@@ -729,7 +727,7 @@ def register_tools(mcp: FastMCP):
         except _TOOL_ERRORS as e:
             return _tool_result(api_error_payload(e))
 
-    @mcp.tool(annotations=READ_ONLY, output_schema=_OBJECT_OUTPUT)
+    @mcp.tool(annotations=READ_ONLY)
     async def get_upcoming_anime_episodes(hours: int = 36) -> ToolResult:
         """Fetch upcoming episode air times for the authenticated user's 'watching' and 'plan to watch' anime, from AniList.
 
@@ -751,7 +749,7 @@ def register_tools(mcp: FastMCP):
         except _TOOL_ERRORS as e:
             return _tool_result(api_error_payload(e))
 
-    @mcp.tool(annotations=READ_ONLY, output_schema=_OBJECT_OUTPUT)
+    @mcp.tool(annotations=READ_ONLY)
     async def get_watch_queue() -> ToolResult:
         """Build a watch queue digest from the authenticated user's 'watching' anime list and AniList airing schedules.
 
@@ -766,7 +764,7 @@ def register_tools(mcp: FastMCP):
         except _TOOL_ERRORS as e:
             return _tool_result(api_error_payload(e))
 
-    @mcp.tool(annotations=READ_ONLY, output_schema=_OBJECT_OUTPUT)
+    @mcp.tool(annotations=READ_ONLY)
     async def get_mal_news(limit: int = 10) -> ToolResult:
         """Fetch recent anime/manga news articles from MyAnimeList RSS feed."""
         try:

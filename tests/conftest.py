@@ -14,9 +14,10 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from payloads import tool_payload
+
 from tools import tools
 from utils import auth
-from utils.serialization import format_tool_payload
 
 
 @pytest.fixture(autouse=True)
@@ -54,18 +55,15 @@ class ToolHarness:
     client: AsyncMock
 
     def call(self, name, **kwargs):
-        """Call the tool function directly and return its structured content.
+        """Call the tool function directly and return its decoded payload.
 
-        FastMCP argument validation is skipped. The text block must be the
-        structured content as serialized by format_tool_payload.
+        FastMCP argument validation is skipped. See tool_payload for what
+        the result must look like.
         """
         tool = asyncio.run(self.mcp.get_tool(name))
         result = asyncio.run(tool.fn(**kwargs))
         assert isinstance(result, ToolResult)
-        assert [block.text for block in result.content] == [
-            format_tool_payload(result.structured_content)
-        ]
-        return result.structured_content
+        return tool_payload(result)
 
     def call_over_mcp(self, name, arguments):
         async def run():

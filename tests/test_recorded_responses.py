@@ -11,6 +11,7 @@ from unittest.mock import AsyncMock, Mock
 
 import httpx
 import pytest
+from payloads import tool_payload
 
 from tools import tools
 from utils import anilist, episodes
@@ -140,7 +141,7 @@ def test_tool_returns_recorded_mal_response_unchanged(
     result = mal.call_over_mcp(name, arguments)
 
     assert not result.is_error
-    assert result.structured_content == recorded
+    assert tool_payload(result) == recorded
 
 
 # ------------------------------------------------- recorded response shapes
@@ -247,7 +248,7 @@ def test_watch_queue_is_rebuilt_from_recorded_inputs(mal, monkeypatch):
 
     result = mal.call_over_mcp("get_watch_queue", {})
 
-    assert result.structured_content == load("get_watch_queue.json")
+    assert tool_payload(result) == load("get_watch_queue.json")
 
 
 def test_upcoming_episodes_are_rebuilt_from_recorded_inputs(mal, monkeypatch):
@@ -269,7 +270,7 @@ def test_upcoming_episodes_are_rebuilt_from_recorded_inputs(mal, monkeypatch):
         "get_upcoming_anime_episodes", {"hours": recorded["hours"]}
     )
 
-    assert result.structured_content == recorded
+    assert tool_payload(result) == recorded
 
 
 def test_news_is_rebuilt_from_recorded_rss(mal, monkeypatch):
@@ -277,4 +278,4 @@ def test_news_is_rebuilt_from_recorded_rss(mal, monkeypatch):
 
     result = mal.call_over_mcp("get_mal_news", {"limit": 3})
 
-    assert result.structured_content == load("get_mal_news.json")
+    assert tool_payload(result) == load("get_mal_news.json")

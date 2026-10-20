@@ -9,6 +9,7 @@ from unittest.mock import Mock
 
 import pytest
 from fastmcp import Client, FastMCP
+from payloads import tool_payload
 
 from main import _handle_shutdown_signal, create_server
 from utils.mal_client import MALAPIError, MALClient
@@ -51,7 +52,7 @@ def test_expected_mal_error_is_returned_as_payload(server, monkeypatch):
     result = call(server, "get_anime", {"q": "naruto"})
 
     assert not result.is_error
-    assert result.structured_content["error"] == (
+    assert tool_payload(result)["error"] == (
         "MAL API returned an error: invalid q"
     )
 
