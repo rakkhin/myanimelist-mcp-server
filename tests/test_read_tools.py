@@ -360,6 +360,82 @@ class TestAuthenticatedTools:
         mal.client.get_authed.assert_not_awaited()
 
 
+def _status_error(status_code):
+    request = httpx.Request("GET", "https://api.myanimelist.net/v2/x")
+    response = httpx.Response(status_code, request=request)
+    return httpx.HTTPStatusError(
+        str(status_code), request=request, response=response
+    )
+
+
+@pytest.fixture
+def rejected_token(mal, monkeypatch):
+    """MAL rejects the first token; the second one comes from a refresh."""
+    monkeypatch.setattr(
+        tools,
+        "get_mal_access_token",
+        AsyncMock(side_effect=["rejected-token", "refreshed-token"]),
+    )
+    expire = Mock()
+    monkeypatch.setattr(tools, "expire_access_token", expire)
+    return expire
+
+
+class TestRejectedToken:
+    @pytest.mark.parametrize(("name", "kwargs"), AUTHED_TOOLS)
+    def test_rejected_token_is_expired_and_request_retried(
+        self, mal, rejected_token, name, kwargs
+    ):
+        mal.client.get_authed.side_effect = [
+            _status_error(401),
+            {"data": ["ok"]},
+        ]
+
+        result = mal.call(name, **kwargs)
+
+        assert result == {"data": ["ok"]}
+        rejected_token.assert_called_once_with("rejected-token")
+        tokens = [c.args[1] for c in mal.client.get_authed.await_args_list]
+        assert tokens == ["rejected-token", "refreshed-token"]
+
+    def test_retries_only_once(self, mal, rejected_token):
+        mal.client.get_authed.side_effect = _status_error(401)
+
+        result = mal.call("get_user_profile")
+
+        assert result["status_code"] == 401
+        assert mal.client.get_authed.await_count == 2
+        rejected_token.assert_called_once_with("rejected-token")
+
+    def test_other_http_errors_are_not_retried(self, mal, rejected_token):
+        mal.client.get_authed.side_effect = _status_error(500)
+
+        result = mal.call("get_user_profile")
+
+        assert result["status_code"] == 500
+        mal.client.get_authed.assert_awaited_once()
+        rejected_token.assert_not_called()
+
+    def test_failed_refresh_asks_for_login(self, mal, monkeypatch):
+        monkeypatch.setattr(
+            tools,
+            "get_mal_access_token",
+            AsyncMock(
+                side_effect=[
+                    "rejected-token",
+                    MALAuthError("Call 'mal_auth_login' first"),
+                ]
+            ),
+        )
+        monkeypatch.setattr(tools, "expire_access_token", Mock())
+        mal.client.get_authed.side_effect = _status_error(401)
+
+        result = mal.call("get_user_profile")
+
+        assert "mal_auth_login" in result["error"]
+        mal.client.get_authed.assert_awaited_once()
+
+
 class TestAuthTools:
     @pytest.mark.parametrize(
         ("name", "function", "mock_cls"),
