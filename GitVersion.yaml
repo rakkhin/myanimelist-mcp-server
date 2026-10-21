@@ -1,0 +1,17 @@
+workflow: GitHubFlow/v1
+
+# The version before the first tag; once a version is tagged, it counts from
+# the latest tag.
+next-version: 0.1.0
+
+# Conventional Commits: a ! before the colon or a BREAKING CHANGE footer bumps
+# the major version, feat the minor version, and fix and perf the patch version.
+major-version-bump-message: "^\\w+(\\([^)]*\\))?!:|(?m:^BREAKING[ -]CHANGE:)"
+minor-version-bump-message: "^feat(\\([^)]*\\))?:"
+patch-version-bump-message: "^(fix|perf)(\\([^)]*\\))?:"
+
+branches:
+  # Every commit on master is a release with a plain version, which the
+  # Master workflow tags on it.
+  main:
+    mode: ContinuousDeployment
