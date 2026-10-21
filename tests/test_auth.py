@@ -614,6 +614,33 @@ def test_callback_handler_rejects_unknown_path(monkeypatch):
     assert auth.CALLBACK_CODE is None
 
 
+def test_callback_handler_uses_path_of_redirect_uri(monkeypatch):
+    monkeypatch.setattr(
+        auth, "REDIRECT_URI", "https://mcp.example.com/auth/mal/callback"
+    )
+
+    responses = _handle_callback(
+        monkeypatch, "/auth/mal/callback?code=abc&state=xyz"
+    )
+
+    assert responses[0][0] == 200
+    assert auth.CALLBACK_CODE == "abc"
+    assert auth.CALLBACK_STATE == "xyz"
+
+
+def test_callback_handler_rejects_default_path_for_other_redirect_uri(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        auth, "REDIRECT_URI", "https://mcp.example.com/auth/mal/callback"
+    )
+
+    responses = _handle_callback(monkeypatch, "/callback?code=abc&state=xyz")
+
+    assert responses[0][0] == 404
+    assert auth.CALLBACK_CODE is None
+
+
 def test_callback_handler_reports_escaped_error(monkeypatch):
     responses = _handle_callback(
         monkeypatch, "/callback?error=%3Cscript%3Ealert(1)%3C%2Fscript%3E"

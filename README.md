@@ -56,7 +56,7 @@ Run the `mal_auth_login` tool to start a one-shot callback server and receive a 
 
 MyAnimeList OAuth uses PKCE. This server defaults `MAL_PKCE_METHOD` to `plain`, which matches MyAnimeList compatibility. Set it to `S256` only if your MyAnimeList app/API behavior explicitly supports it.
 
-`MAL_CALLBACK_HOST` defaults to `127.0.0.1` for safety. If the MCP server runs inside Docker and the callback must be reached through a published Docker/Tailscale port, set `MAL_CALLBACK_HOST=0.0.0.0` and make sure `MAL_REDIRECT_URI` exactly matches a redirect URL registered in the MyAnimeList app settings.
+`MAL_CALLBACK_HOST` defaults to `127.0.0.1` for safety. If the MCP server runs inside Docker and the callback must be reached through a published Docker/Tailscale port, set `MAL_CALLBACK_HOST=0.0.0.0` and make sure `MAL_REDIRECT_URI` exactly matches a redirect URL registered in the MyAnimeList app settings. The callback server answers on the path of `MAL_REDIRECT_URI`, so a reverse proxy or tunnel that forwards a public URL such as `https://mcp.example.com/auth/mal/callback` unchanged to `MAL_CALLBACK_HOST:MAL_CALLBACK_PORT` works without rewriting the path.
 
 ## Hermes MCP setup
 
