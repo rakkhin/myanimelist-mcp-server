@@ -4,6 +4,12 @@ on:
   push:
     branches: [master]
 
+# A commit counts its version from the latest tag, so a run must wait until
+# the previous one has tagged its commit, or both would get the same version.
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
 jobs:
   version:
     uses: ./.github/workflows/version.yml
@@ -18,3 +24,26 @@ jobs:
     permissions:
       contents: read
       packages: write # push to ghcr.io
+
+  # Tags the commit with the version of the image just pushed. A re-run finds
+  # the tag already on this commit, as GitVersion returns the tagged version.
+  tag:
+    needs: [version, container]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write # create the tag
+    steps:
+      - name: Tag the commit with its version
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.version.outputs.semver }}
+        run: |
+          tagged=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$VERSION" \
+            --jq .object.sha 2>/dev/null || true)
+          if [ "$tagged" = "$GITHUB_SHA" ]; then
+            echo "Tag $VERSION is already on $GITHUB_SHA."
+          else
+            gh api "repos/$GITHUB_REPOSITORY/git/refs" \
+              -f "ref=refs/tags/$VERSION" -f "sha=$GITHUB_SHA"
+          fi
