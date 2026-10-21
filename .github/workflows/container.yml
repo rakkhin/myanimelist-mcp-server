@@ -1,9 +1,10 @@
 name: Container
 
-# Builds the image from the Dockerfile and pushes it to the GitHub Container
-# Registry as ghcr.io/<owner>/<repository>, tagged with the given version and,
-# when called for a push to the default branch, also as latest. The caller's
-# job must grant packages: write.
+# Builds the image from the Dockerfile for amd64 and arm64 (such as a 64-bit
+# Raspberry Pi) and pushes it to the GitHub Container Registry as
+# ghcr.io/<owner>/<repository>, tagged with the given version and, when called
+# for a push to the default branch, also as latest. The caller's job must
+# grant packages: write.
 on:
   workflow_call:
     inputs:
@@ -24,6 +25,11 @@ jobs:
       packages: write # push to ghcr.io
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # Emulates arm64 on the amd64 runner for the arm64 build.
+      - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
+        with:
+          platforms: arm64
 
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
@@ -48,6 +54,7 @@ jobs:
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
+          platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
