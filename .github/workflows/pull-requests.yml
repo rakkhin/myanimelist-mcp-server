@@ -1,4 +1,4 @@
-name: Tests
+name: Pull requests
 
 on:
   pull_request:
@@ -11,6 +11,11 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  version:
+    uses: ./.github/workflows/version.yml
+    permissions:
+      contents: read
+
   test:
     runs-on: ubuntu-latest
     timeout-minutes: 15

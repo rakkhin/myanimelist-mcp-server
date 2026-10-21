@@ -1,0 +1,11 @@
+name: Master
+
+on:
+  push:
+    branches: [master]
+
+jobs:
+  version:
+    uses: ./.github/workflows/version.yml
+    permissions:
+      contents: read
