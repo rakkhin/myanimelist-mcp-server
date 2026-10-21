@@ -16,8 +16,9 @@ jobs:
     permissions:
       contents: read
 
+  # Pushes an image only of code that passes the tests and the dependency scan.
   container:
-    needs: version
+    needs: [version, test, dependency-scan]
     uses: ./.github/workflows/container.yml
     with:
       version: ${{ needs.version.outputs.semver }}
