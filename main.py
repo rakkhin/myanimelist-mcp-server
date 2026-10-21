@@ -6,6 +6,8 @@ from fastmcp import FastMCP
 
 from tools.tools import register_tools
 
+_TRANSPORTS = ("stdio", "http")
+
 
 def create_server() -> FastMCP:
     """Create and configure the MyAnimeList MCP server."""
@@ -30,7 +32,46 @@ def _handle_shutdown_signal(signum, frame):
     os._exit(128 + signum)
 
 
+def _transport() -> str:
+    transport = os.getenv("MAL_TRANSPORT") or "stdio"
+    if transport not in _TRANSPORTS:
+        raise ValueError(
+            f"MAL_TRANSPORT must be one of {', '.join(_TRANSPORTS)}, "
+            f"got {transport!r}"
+        )
+    return transport
+
+
+def _http_settings() -> dict[str, str | int]:
+    """Read where the HTTP transport listens.
+
+    The host defaults to loopback: the server is meant to be reached only
+    through a local tunnel connector or reverse proxy.
+    """
+    port = os.getenv("MAL_HTTP_PORT") or "8000"
+    if not port.isdigit() or not 0 < int(port) < 65536:
+        raise ValueError(
+            f"MAL_HTTP_PORT must be a port number (1-65535), got {port!r}"
+        )
+    path = os.getenv("MAL_HTTP_PATH") or "/mcp"
+    if not path.startswith("/"):
+        raise ValueError(f"MAL_HTTP_PATH must start with '/', got {path!r}")
+    return {
+        "host": os.getenv("MAL_HTTP_HOST") or "127.0.0.1",
+        "port": int(port),
+        "path": path,
+    }
+
+
 def main():
+    # Validate the settings before anything starts listening.
+    transport = _transport()
+    if transport == "http":
+        # uvicorn handles SIGINT and SIGTERM itself.
+        settings = _http_settings()
+        create_server().run(transport="http", **settings)
+        return
+
     for signum in (signal.SIGINT, signal.SIGTERM):
         signal.signal(signum, _handle_shutdown_signal)
     mcp = create_server()

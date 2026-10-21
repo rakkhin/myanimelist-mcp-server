@@ -2,13 +2,14 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-MCP server (FastMCP 4, stdio) exposing the MyAnimeList API v2 as tools, plus helpers for OAuth, an upcoming episode digest and a watch queue (air times from AniList) and MAL news. See README.md for configuration (`.env`, `MAL_*` variables) and the tool list.
+MCP server (FastMCP 4, stdio or streamable HTTP) exposing the MyAnimeList API v2 as tools, plus helpers for OAuth, an upcoming episode digest and a watch queue (air times from AniList) and MAL news. See README.md for configuration (`.env`, `MAL_*` variables) and the tool list.
 
 ## Commands
 
 ```bash
 uv sync                                    # install, including dev group (pytest, pytest-cov)
 uv run main.py                             # run the server on stdio
+MAL_TRANSPORT=http uv run main.py          # run it on streamable HTTP (127.0.0.1:8000/mcp)
 uv run pytest -q                           # all tests
 uv run pytest -q tests/test_read_tools.py::TestPublicTools::test_forum_boards
 uv run pytest -q --cov=. --cov-report=term-missing   # fails if total < 95%
@@ -28,7 +29,7 @@ uv run python scripts/anonymize_fixtures.py  # regenerate tests/fixtures/mal/
 
 ## Architecture
 
-- `main.py`: `create_server()` builds `FastMCP("myanimelist", mask_error_details=True)` and calls `register_tools`; `main()` installs a SIGINT/SIGTERM handler that logs to stderr (stdout is the protocol) and exits with `os._exit(128 + signum)` (shell convention), then runs the server on stdio. The stdio transport reads stdin in an uncancellable non-daemon thread, so unwinding on a signal hangs until the next stdin line; clients normally stop the server by closing stdin. Importing `main` has no side effects.
+- `main.py`: `create_server()` builds `FastMCP("myanimelist", mask_error_details=True)` and calls `register_tools`. `main()` picks the transport from `MAL_TRANSPORT` (`stdio` default, or `http`) and validates the settings before anything starts. HTTP listens on `MAL_HTTP_HOST:MAL_HTTP_PORT` at `MAL_HTTP_PATH` (default `127.0.0.1:8000`, `/mcp`); a reverse proxy or tunnel forwards the public path unchanged, so `MAL_HTTP_PATH` must match it. uvicorn handles signals for HTTP: it shuts down, then re-raises the signal. For stdio, `main()` installs a SIGINT/SIGTERM handler that logs to stderr (stdout is the protocol) and exits with `os._exit(128 + signum)` (shell convention), then runs the server on stdio. The stdio transport reads stdin in an uncancellable non-daemon thread, so unwinding on a signal hangs until the next stdin line; clients normally stop the server by closing stdin. Importing `main` has no side effects.
 - `tools/tools.py` defines every tool as a closure inside `register_tools`, sharing one `MALClient`.
   - Every tool carries `annotations=READ_ONLY` or `MUTATING` (`ToolAnnotations(read_only_hint=...)`); a test fails if one is unmarked.
   - Every tool returns `ToolResult` through `_tool_result(data)`, whose only content is the text block `format_tool_payload(data)` (`utils/serialization.py`: TOON when strictly shorter than minified JSON, else that JSON). There is deliberately no `structured_content` and no output schema: Claude Code shows the model `structuredContent` instead of the text when both are present, and the spec expects JSON text next to structured content. A test checks that no tool declares an output schema.
