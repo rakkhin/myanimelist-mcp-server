@@ -17,6 +17,7 @@ from fastmcp import Client, FastMCP
 from payloads import tool_payload
 
 from main import _handle_shutdown_signal, create_server, main
+from utils.cloudflare_access import AccessJWTMiddleware
 from utils.mal_client import MALAPIError, MALClient
 
 
@@ -128,6 +129,28 @@ def test_signal_stops_server_while_stdin_is_open(signum, tmp_path):
     assert returncode == 128 + signum
 
 
+ACCESS_TEAM = "https://team.cloudflareaccess.com"
+ACCESS_AUD = "0123abcd"
+
+
+def set_http_env(monkeypatch):
+    monkeypatch.setenv("MAL_TRANSPORT", "http")
+    monkeypatch.setenv("MAL_CF_ACCESS_TEAM_DOMAIN", ACCESS_TEAM)
+    monkeypatch.setenv("MAL_CF_ACCESS_AUD", ACCESS_AUD)
+
+
+def split_access_check(run):
+    """Return run()'s keyword arguments and check its only middleware."""
+    kwargs = dict(run.call_args.kwargs)
+    (middleware,) = kwargs.pop("middleware")
+    assert middleware.cls is AccessJWTMiddleware
+    verifier = middleware.kwargs["verifier"]
+    assert verifier.issuer == ACCESS_TEAM
+    assert verifier.audience == ACCESS_AUD
+    assert verifier.jwks_uri == f"{ACCESS_TEAM}/cdn-cgi/access/certs"
+    return kwargs
+
+
 def run_main(monkeypatch):
     """Run main() with FastMCP.run and signal handler installation mocked."""
     monkeypatch.setenv("MAL_CLIENT_ID", "test-id")
@@ -140,27 +163,56 @@ def run_main(monkeypatch):
 
 
 def test_http_transport_listens_on_loopback_by_default(monkeypatch):
-    monkeypatch.setenv("MAL_TRANSPORT", "http")
+    set_http_env(monkeypatch)
 
     run, install_handler = run_main(monkeypatch)
 
-    run.assert_called_once_with(
-        transport="http", host="127.0.0.1", port=8000, path="/mcp"
-    )
+    run.assert_called_once()
+    assert split_access_check(run) == {
+        "transport": "http",
+        "host": "127.0.0.1",
+        "port": 8000,
+        "path": "/mcp",
+    }
     install_handler.assert_not_called()
 
 
-def test_http_transport_uses_configured_host_port_and_path(monkeypatch):
-    monkeypatch.setenv("MAL_TRANSPORT", "http")
+def test_http_transport_uses_configured_settings(monkeypatch):
+    set_http_env(monkeypatch)
     monkeypatch.setenv("MAL_HTTP_HOST", "0.0.0.0")
     monkeypatch.setenv("MAL_HTTP_PORT", "9000")
     monkeypatch.setenv("MAL_HTTP_PATH", "/mal")
+    # A trailing slash would not match the issuer in Access JWTs.
+    monkeypatch.setenv("MAL_CF_ACCESS_TEAM_DOMAIN", f"{ACCESS_TEAM}/")
+
+    run, _ = run_main(monkeypatch)
+
+    run.assert_called_once()
+    assert split_access_check(run) == {
+        "transport": "http",
+        "host": "0.0.0.0",
+        "port": 9000,
+        "path": "/mal",
+    }
+
+
+def test_http_transport_without_access_settings_has_no_check(
+    monkeypatch, capsys
+):
+    monkeypatch.setenv("MAL_TRANSPORT", "http")
 
     run, _ = run_main(monkeypatch)
 
     run.assert_called_once_with(
-        transport="http", host="0.0.0.0", port=9000, path="/mal"
+        transport="http",
+        middleware=[],
+        host="127.0.0.1",
+        port=8000,
+        path="/mcp",
     )
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert "without the Cloudflare Access check" in captured.err
 
 
 def test_empty_transport_setting_means_stdio(monkeypatch):
@@ -180,10 +232,14 @@ def test_empty_transport_setting_means_stdio(monkeypatch):
         ("MAL_HTTP_PORT", "65536"),
         ("MAL_HTTP_PORT", "-1"),
         ("MAL_HTTP_PATH", "mal"),
+        ("MAL_CF_ACCESS_TEAM_DOMAIN", ""),
+        ("MAL_CF_ACCESS_TEAM_DOMAIN", "http://team.cloudflareaccess.com"),
+        ("MAL_CF_ACCESS_TEAM_DOMAIN", "team.cloudflareaccess.com"),
+        ("MAL_CF_ACCESS_AUD", ""),
     ],
 )
 def test_invalid_setting_fails_before_server_starts(monkeypatch, name, value):
-    monkeypatch.setenv("MAL_TRANSPORT", "http")
+    set_http_env(monkeypatch)
     monkeypatch.setenv(name, value)
     run = Mock()
     monkeypatch.setattr(FastMCP, "run", run)
@@ -226,7 +282,25 @@ def _post_initialize(url):
         return error.code, ""
 
 
-def test_http_server_answers_mcp_on_configured_path(tmp_path):
+# Run main.py on HTTP for real. MCP behind the Access check is tested with a
+# signed JWT in test_cloudflare_access.py.
+@pytest.mark.parametrize(
+    ("access_env", "expected"),
+    [
+        pytest.param(
+            # Never contacted: requests without a JWT are refused before
+            # any key is fetched.
+            {
+                "MAL_CF_ACCESS_TEAM_DOMAIN": ACCESS_TEAM,
+                "MAL_CF_ACCESS_AUD": ACCESS_AUD,
+            },
+            {"/mal": 403, "/mcp": 403},
+            id="access-check",
+        ),
+        pytest.param({}, {"/mal": 200, "/mcp": 404}, id="no-access-check"),
+    ],
+)
+def test_http_server_runs_main(tmp_path, access_env, expected):
     port = _free_port()
     env = {
         **os.environ,
@@ -238,6 +312,7 @@ def test_http_server_answers_mcp_on_configured_path(tmp_path):
         "MAL_HTTP_PATH": "/mal",
         "FASTMCP_SHOW_SERVER_BANNER": "false",
         "FASTMCP_CHECK_FOR_UPDATES": "off",
+        **access_env,
     }
     main_py = Path(__file__).parents[1] / "main.py"
     process = subprocess.Popen(
@@ -258,15 +333,20 @@ def test_http_server_answers_mcp_on_configured_path(tmp_path):
                 assert time.monotonic() < deadline, "server did not start"
                 time.sleep(0.1)
 
-        status, text = _post_initialize(f"http://127.0.0.1:{port}/mal")
-        other_status, _ = _post_initialize(f"http://127.0.0.1:{port}/mcp")
+        responses = {
+            path: _post_initialize(f"http://127.0.0.1:{port}{path}")
+            for path in expected
+        }
     finally:
         process.terminate()
         _, stderr = process.communicate(timeout=10)
 
-    assert status == 200
-    assert '"name":"myanimelist"' in text.replace(" ", "")
-    assert other_status == 404
+    assert {path: status for path, (status, _) in responses.items()} == (
+        expected
+    )
+    if expected["/mal"] == 200:
+        _, text = responses["/mal"]
+        assert '"name":"myanimelist"' in text.replace(" ", "")
     # uvicorn shuts down, then re-raises the signal it caught.
     assert b"Finished server process" in stderr
     assert process.returncode == -signal.SIGTERM

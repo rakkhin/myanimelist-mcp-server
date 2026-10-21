@@ -5,6 +5,7 @@ import sys
 from fastmcp import FastMCP
 
 from tools.tools import register_tools
+from utils.cloudflare_access import access_middleware
 
 _TRANSPORTS = ("stdio", "http")
 
@@ -63,13 +64,49 @@ def _http_settings() -> dict[str, str | int]:
     }
 
 
+def _access_settings() -> tuple[str, str] | None:
+    """Read which Cloudflare Access application HTTP requests must pass.
+
+    The check is opt-in: with neither setting there is none, for servers
+    behind another authentication layer. One without the other is an error,
+    so a half-done setup never runs unprotected.
+    """
+    team_domain = (os.getenv("MAL_CF_ACCESS_TEAM_DOMAIN") or "").rstrip("/")
+    audience = os.getenv("MAL_CF_ACCESS_AUD")
+    if not team_domain and not audience:
+        return None
+    if not team_domain.startswith("https://"):
+        raise ValueError(
+            "MAL_CF_ACCESS_TEAM_DOMAIN must be the Access team domain, "
+            f"such as https://<team>.cloudflareaccess.com, got {team_domain!r}"
+        )
+    if not audience:
+        raise ValueError(
+            "MAL_CF_ACCESS_AUD must be the AUD tag of the Access application"
+        )
+    return team_domain, audience
+
+
 def main():
     # Validate the settings before anything starts listening.
     transport = _transport()
     if transport == "http":
-        # uvicorn handles SIGINT and SIGTERM itself.
         settings = _http_settings()
-        create_server().run(transport="http", **settings)
+        access = _access_settings()
+        if access:
+            middleware = [access_middleware(*access)]
+        else:
+            middleware = []
+            print(
+                "Serving HTTP without the Cloudflare Access check "
+                "(MAL_CF_ACCESS_TEAM_DOMAIN and MAL_CF_ACCESS_AUD are unset); "
+                "requests must be authenticated in front of this server.",
+                file=sys.stderr,
+            )
+        # uvicorn handles SIGINT and SIGTERM itself.
+        create_server().run(
+            transport="http", middleware=middleware, **settings
+        )
         return
 
     for signum in (signal.SIGINT, signal.SIGTERM):

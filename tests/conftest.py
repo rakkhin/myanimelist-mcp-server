@@ -6,6 +6,7 @@ from pathlib import Path
 from unittest.mock import AsyncMock
 
 import httpx
+import httpx2
 import pytest
 from fastmcp import Client, FastMCP
 from fastmcp.tools import ToolResult
@@ -47,6 +48,8 @@ def isolate_from_local_environment(monkeypatch, tmp_path):
         )
 
     monkeypatch.setattr(httpx.AsyncClient, "send", no_network)
+    # FastMCP's JWTVerifier fetches signing keys with httpx2.
+    monkeypatch.setattr(httpx2.AsyncClient, "send", no_network)
 
 
 @dataclass

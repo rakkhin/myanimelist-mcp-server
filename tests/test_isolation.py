@@ -2,6 +2,7 @@ import asyncio
 import os
 
 import httpx
+import httpx2
 import pytest
 
 from utils import auth
@@ -29,6 +30,17 @@ def test_real_http_requests_are_blocked():
     async def fetch():
         async with httpx.AsyncClient() as client:
             await client.get("https://myanimelist.net")
+
+    with pytest.raises(AssertionError, match="real HTTP request"):
+        asyncio.run(fetch())
+
+
+def test_real_jwks_requests_are_blocked():
+    async def fetch():
+        async with httpx2.AsyncClient() as client:
+            await client.get(
+                "https://team.cloudflareaccess.com/cdn-cgi/access/certs"
+            )
 
     with pytest.raises(AssertionError, match="real HTTP request"):
         asyncio.run(fetch())
