@@ -16,6 +16,15 @@ jobs:
     permissions:
       contents: read
 
+  container:
+    needs: version
+    uses: ./.github/workflows/container.yml
+    with:
+      version: ${{ needs.version.outputs.semver }}
+    permissions:
+      contents: read
+      packages: write # push to ghcr.io
+
   test:
     runs-on: ubuntu-latest
     timeout-minutes: 15
