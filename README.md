@@ -83,6 +83,7 @@ MAL_TRANSPORT=http uv run main.py   # http://127.0.0.1:8000/mcp
 | `MAL_HTTP_PATH` | `/mcp` | Path of the MCP endpoint. A reverse proxy or tunnel that forwards the public path unchanged needs the same path here. |
 | `MAL_CF_ACCESS_TEAM_DOMAIN` | unset | Cloudflare Access team domain, such as `https://<team>.cloudflareaccess.com`. |
 | `MAL_CF_ACCESS_AUD` | unset | AUD tag of the Access application protecting the endpoint. |
+| `FORWARDED_ALLOW_IPS` | `127.0.0.1,::1` | uvicorn's setting: addresses or networks trusted to send `X-Forwarded-For`, so that the access log shows the client's address instead of the proxy's. |
 
 Invalid values, or only one of the two `MAL_CF_ACCESS_*` settings, stop the server at startup with a message naming the variable.
 
@@ -102,6 +103,8 @@ One way to use the server from claude.ai and the Claude apps, without opening a 
 6. In claude.ai, add a custom connector with the URL `https://mcp.example.com/mcp`, sign-in disabled, and the request headers `CF-Access-Client-Id` and `CF-Access-Client-Secret` from the service token. Request headers are only offered when your account supports them for custom connectors.
 
 Without the token, Access answers `403` before the request reaches the tunnel.
+
+Cloudflare puts the client's address in `X-Forwarded-For`, and uvicorn logs it only for requests from an address in `FORWARDED_ALLOW_IPS`. When `cloudflared` connects from loopback, the default already covers it; when it runs in another container, set `FORWARDED_ALLOW_IPS` to its address or the narrowest network that contains it, and nothing else, since a trusted address can put any client address in the log. uvicorn takes the rightmost untrusted address in the header, so an `X-Forwarded-For` sent by the client itself is ignored. Requests from claude.ai come from Anthropic's egress addresses, not from your device.
 
 To log in to MyAnimeList through the tunnel (`mal_auth_login` from claude.ai):
 
