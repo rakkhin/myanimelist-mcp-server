@@ -1,4 +1,4 @@
-name: Tests
+name: Pull requests
 
 on:
   pull_request:
@@ -11,6 +11,21 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  version:
+    uses: ./.github/workflows/version.yml
+    permissions:
+      contents: read
+
+  # Pushes an image only of code that passes the tests and the dependency scan.
+  container:
+    needs: [version, test, dependency-scan]
+    uses: ./.github/workflows/container.yml
+    with:
+      version: ${{ needs.version.outputs.semver }}
+    permissions:
+      contents: read
+      packages: write # push to ghcr.io
+
   test:
     runs-on: ubuntu-latest
     timeout-minutes: 15

@@ -1,0 +1,53 @@
+name: Version
+
+# Calculates the semantic version of the checked-out commit with GitVersion
+# (configured in GitVersion.yaml). Called by the Pull requests and Master
+# workflows.
+on:
+  workflow_call:
+    outputs:
+      semver:
+        description: Semantic version of the checked-out commit
+        value: ${{ jobs.version.outputs.semver }}
+      full-semver:
+        description: Semantic version with build metadata
+        value: ${{ jobs.version.outputs.full-semver }}
+
+# No concurrency group: in a called workflow github.workflow is the caller's
+# name, so a group here would match the caller's own group and wait on it.
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    outputs:
+      semver: ${{ steps.gitversion.outputs.semVer }}
+      full-semver: ${{ steps.gitversion.outputs.fullSemVer }}
+    steps:
+      # GitVersion derives the version from tags and commits, so it needs the
+      # whole history rather than the default single commit.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - uses: gittools/actions/gitversion/setup@7417b1089e2c7de93510f1901d656ddf60bb024f # v4.7.0
+        with:
+          versionSpec: 6.8.2
+
+      - name: Calculate version
+        id: gitversion
+        uses: gittools/actions/gitversion/execute@7417b1089e2c7de93510f1901d656ddf60bb024f # v4.7.0
+        with:
+          configFilePath: GitVersion.yaml
+
+      - name: Report version
+        env:
+          FULL_SEMVER: ${{ steps.gitversion.outputs.fullSemVer }}
+        run: |
+          {
+            echo "## Version"
+            echo
+            echo "\`$FULL_SEMVER\`"
+          } >> "$GITHUB_STEP_SUMMARY"
