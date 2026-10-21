@@ -126,7 +126,9 @@ class _CallbackHandler(http.server.BaseHTTPRequestHandler):
         global CALLBACK_CODE, CALLBACK_STATE
 
         parsed = urllib.parse.urlparse(self.path)
-        if parsed.path != "/callback":
+        # A reverse proxy forwards the public path unchanged, so accept the
+        # path MAL redirects to, not a fixed one.
+        if parsed.path != urllib.parse.urlparse(REDIRECT_URI).path:
             self._send_html(404, "<h1>Not found</h1>")
             return
 
