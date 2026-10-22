@@ -26,6 +26,7 @@ uv run python scripts/anonymize_fixtures.py  # regenerate tests/fixtures/mal/
 - The repo uses the feature branch workflow: work on a feature branch, never commit directly to the default branch (`master`), and merge through a pull request.
 - Prefer squash merges when completing a pull request into the default branch, so each feature branch lands as one commit.
 - Commit messages follow [Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/): `<type>[optional scope][!]: <description>` (e.g. `feat:`, `fix:`, `build:`, `refactor:`, `docs:`, `test:`, `ci:`, `chore:`), with breaking changes marked by `!` or a `BREAKING CHANGE:` footer. Pull request titles follow the same format, since the squash commit takes its message from the title.
+- Versions come from GitVersion (`GitVersion.yaml`): the highest bump among the commit messages since the latest tag (`!` or `BREAKING CHANGE:` major, `feat` minor, anything else patch), so pick each commit's type with that in mind. The Master workflow builds, pushes and tags a release only for pushes that change the server's code or dependencies, `GitVersion.yaml`, or the Master, Version or Container workflows (`paths` in `.github/workflows/master.yml`), so Dependabot's action updates are releases too; other commits are not tagged and count towards the next release.
 
 ## Architecture
 

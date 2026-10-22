@@ -3,6 +3,21 @@ name: Master
 on:
   push:
     branches: [master]
+    # Releases only when the server's code or dependencies change, or how
+    # the image is versioned, built or tagged. Other commits are not tagged,
+    # and GitVersion counts their messages towards the next release.
+    paths:
+      - Dockerfile
+      - main.py
+      - pyproject.toml
+      - uv.lock
+      - tools/**
+      - utils/**
+      # Files that change how the version is calculated or the image is built
+      - GitVersion.yaml
+      - .github/workflows/master.yml
+      - .github/workflows/version.yml
+      - .github/workflows/container.yml
 
 # A commit counts its version from the latest tag, so a run must wait until
 # the previous one has tagged its commit, or both would get the same version.
