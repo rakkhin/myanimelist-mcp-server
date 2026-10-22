@@ -18,7 +18,7 @@ on:
 
 jobs:
   container:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-${{ vars.RUNNER_VERSION_UBUNTU }}
     timeout-minutes: 20
     permissions:
       contents: read
