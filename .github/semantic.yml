@@ -1,0 +1,7 @@
+# Settings of the Semantic PRs app (https://github.com/Ezard/semantic-prs),
+# read from the default branch. Rebase merges put every commit on master and
+# GitVersion reads each message, so every commit must follow Conventional
+# Commits, not just the title.
+titleAndCommits: true
+# GitHub's revert button writes 'Revert "fix: ..."'.
+allowRevertCommits: true
