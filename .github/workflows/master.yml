@@ -29,7 +29,7 @@ jobs:
   # the tag already on this commit, as GitVersion returns the tagged version.
   tag:
     needs: [version, container]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-${{ vars.RUNNER_VERSION_UBUNTU }}
     timeout-minutes: 5
     permissions:
       contents: write # create the tag

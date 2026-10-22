@@ -18,7 +18,7 @@ on:
 
 jobs:
   version:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-${{ vars.RUNNER_VERSION_UBUNTU }}
     timeout-minutes: 10
     permissions:
       contents: read
