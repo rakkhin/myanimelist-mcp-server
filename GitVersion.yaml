@@ -11,7 +11,8 @@ minor-version-bump-message: "^feat(\\([^)]*\\))?:"
 patch-version-bump-message: "^(fix|perf)(\\([^)]*\\))?:"
 
 branches:
-  # Every commit on master is a release with a plain version, which the
-  # Master workflow tags on it.
+  # A push to master that changes the server's code or dependencies, or how
+  # the image is versioned, built or tagged, is a release with a plain
+  # version, which the Master workflow tags on it.
   main:
     mode: ContinuousDeployment
