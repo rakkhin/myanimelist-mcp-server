@@ -12,6 +12,7 @@ MCP server for interacting with the MyAnimeList API from Hermes, Claude Desktop,
 - Episode schedule helper: `get_upcoming_anime_episodes`, upcoming episodes of the logged-in user's `watching` and `plan to watch` anime, with air times from [AniList](https://docs.anilist.co/).
 - Watch queue helper: `get_watch_queue`, combines the authenticated `watching` list with AniList air times to show per-anime watched vs latest released counts.
 - News RSS helper: `get_mal_news`, backed by `https://myanimelist.net/rss/news.xml`.
+- Streamable HTTP transport, with an optional Cloudflare Access check, for use as a custom connector in claude.ai and the Claude apps (see [HTTP mode](#http-mode)).
 - Tests, including runs of every read-only tool against anonymised recordings of real MyAnimeList responses.
 
 ## Requirements
@@ -42,6 +43,14 @@ MAL_PKCE_METHOD=plain
 MAL_RATE_LIMIT_DELAY=0.35
 # Optional token path. Default: $HERMES_HOME/secrets/mal_tokens.json, or ~/.hermes/secrets/mal_tokens.json
 MAL_TOKEN_STORAGE_PATH=/opt/data/.hermes/secrets/mal_tokens.json
+# Optional, HTTP mode only (see "HTTP mode"); defaults shown:
+MAL_TRANSPORT=stdio
+MAL_HTTP_HOST=127.0.0.1
+MAL_HTTP_PORT=8000
+MAL_HTTP_PATH=/mcp
+# Cloudflare Access check: set both to turn it on, neither to leave it off.
+# MAL_CF_ACCESS_TEAM_DOMAIN=https://<team>.cloudflareaccess.com
+# MAL_CF_ACCESS_AUD=<AUD tag of the Access application>
 ```
 
 Secrets must stay local. Do not commit `.env` or token files.
@@ -57,6 +66,57 @@ Run the `mal_auth_login` tool to start a one-shot callback server and receive a 
 MyAnimeList OAuth uses PKCE. This server defaults `MAL_PKCE_METHOD` to `plain`, which matches MyAnimeList compatibility. Set it to `S256` only if your MyAnimeList app/API behavior explicitly supports it.
 
 `MAL_CALLBACK_HOST` defaults to `127.0.0.1` for safety. If the MCP server runs inside Docker and the callback must be reached through a published Docker/Tailscale port, set `MAL_CALLBACK_HOST=0.0.0.0` and make sure `MAL_REDIRECT_URI` exactly matches a redirect URL registered in the MyAnimeList app settings. The callback server answers on the path of `MAL_REDIRECT_URI`, so a reverse proxy or tunnel that forwards a public URL such as `https://mcp.example.com/auth/mal/callback` unchanged to `MAL_CALLBACK_HOST:MAL_CALLBACK_PORT` works without rewriting the path.
+
+## HTTP mode
+
+Set `MAL_TRANSPORT=http` to serve the tools over [streamable HTTP](https://modelcontextprotocol.io/specification/latest/basic/transports#streamable-http) instead of stdio:
+
+```bash
+MAL_TRANSPORT=http uv run main.py   # http://127.0.0.1:8000/mcp
+```
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `MAL_TRANSPORT` | `stdio` | `stdio` or `http`. |
+| `MAL_HTTP_HOST` | `127.0.0.1` | Address to listen on. |
+| `MAL_HTTP_PORT` | `8000` | Port to listen on. |
+| `MAL_HTTP_PATH` | `/mcp` | Path of the MCP endpoint. A reverse proxy or tunnel that forwards the public path unchanged needs the same path here. |
+| `MAL_CF_ACCESS_TEAM_DOMAIN` | unset | Cloudflare Access team domain, such as `https://<team>.cloudflareaccess.com`. |
+| `MAL_CF_ACCESS_AUD` | unset | AUD tag of the Access application protecting the endpoint. |
+| `FORWARDED_ALLOW_IPS` | `127.0.0.1,::1` | uvicorn's setting: addresses or networks trusted to send `X-Forwarded-For`, so that the access log shows the client's address instead of the proxy's. |
+
+Invalid values, or only one of the two `MAL_CF_ACCESS_*` settings, stop the server at startup with a message naming the variable.
+
+The server uses one MyAnimeList account, the one whose tokens are in the token file, for every caller. **Anyone who can reach the endpoint can read and change that account's lists**, so never expose it without authentication in front of it. It listens on loopback by default, so only a local reverse proxy or tunnel connector can reach it. The `mal_auth_*` tools work over HTTP as well.
+
+With both `MAL_CF_ACCESS_*` settings, every request must carry a valid Cloudflare Access JWT (`Cf-Access-Jwt-Assertion`, checked against the team's signing keys, issuer and the application's AUD tag); anything else gets `403`. This covers requests that reach the port without going through Cloudflare, such as other local processes or a web page in a browser on the same machine (DNS rebinding). Without them there is no check and the server prints a warning at startup; use that only behind another authentication layer.
+
+### Behind Cloudflare Tunnel and Access (claude.ai custom connector)
+
+One way to use the server from claude.ai and the Claude apps, without opening a port:
+
+1. Run the server with `MAL_TRANSPORT=http` on the machine that runs [`cloudflared`](https://developers.cloudflare.com/tunnel/).
+2. In Cloudflare Zero Trust, create a [service token](https://developers.cloudflare.com/cloudflare-one/identity/service-tokens/) for Claude.
+3. Add a tunnel route for your hostname, such as `mcp.example.com`, with the path `^/mcp(/.*)?$`, to `http://127.0.0.1:8000`. The path is an unanchored regular expression, so anchor it, or it also matches paths such as `/foo/mcp`. Turn on "Protect with Access" for the route if you want cloudflared to also check the Access JWT before forwarding requests to the server.
+4. Add an Access application for `mcp.example.com/mcp` with a policy whose action is **Service Auth** and that includes the service token. To accept the token only from Claude, add a **Require** rule for [Anthropic's egress range](https://claude.com/docs/connectors/building/authentication#network-reference) (`160.79.104.0/21`) and any other addresses you call from. Include rules are alternatives, so an IP range under Include would let requests in without the token.
+5. Set `MAL_CF_ACCESS_TEAM_DOMAIN` and `MAL_CF_ACCESS_AUD` (the application's AUD tag) and restart the server.
+6. In claude.ai, add a custom connector with the URL `https://mcp.example.com/mcp`, sign-in disabled, and the request headers `CF-Access-Client-Id` and `CF-Access-Client-Secret` from the service token. Request headers are only offered when your account supports them for custom connectors.
+
+Without the token, Access answers `403` before the request reaches the tunnel.
+
+Cloudflare puts the client's address in `X-Forwarded-For`, and uvicorn logs it only for requests from an address in `FORWARDED_ALLOW_IPS`. When `cloudflared` connects from loopback, the default already covers it; when it runs in another container, set `FORWARDED_ALLOW_IPS` to its address or the narrowest network that contains it, and nothing else, since a trusted address can put any client address in the log. uvicorn takes the rightmost untrusted address in the header, so an `X-Forwarded-For` sent by the client itself is ignored. Requests from claude.ai come from Anthropic's egress addresses, not from your device.
+
+To log in to MyAnimeList through the tunnel (`mal_auth_login` from claude.ai):
+
+1. Add a tunnel route for the callback path, such as `^/auth/mal/callback$` on `mcp.example.com`, to `http://127.0.0.1:8080` (`MAL_CALLBACK_HOST:MAL_CALLBACK_PORT`).
+2. Protect it with an Access application whose **Service Auth** policy includes only the address of the network you log in from. The callback comes from your browser after MyAnimeList's redirect and cannot carry the service token; the address match alone lets it through, and Access refuses every other address.
+3. Add `https://mcp.example.com/auth/mal/callback` to the redirect URLs of your MyAnimeList app and set `MAL_REDIRECT_URI` to it.
+
+The callback server only listens while a login is pending and ignores callbacks whose `state` does not match.
+
+### Docker
+
+The image runs stdio by default. For HTTP, set `MAL_TRANSPORT=http` and `MAL_HTTP_HOST=0.0.0.0`, run the container on a network shared only with `cloudflared` (or your reverse proxy), and do not publish the port. Keep the token file on a volume (`MAL_TOKEN_STORAGE_PATH`).
 
 ## Hermes MCP setup
 

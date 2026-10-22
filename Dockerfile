@@ -12,5 +12,6 @@ COPY utils /app/utils
 # Install exactly the versions in uv.lock
 RUN pip install --no-cache-dir uv && uv sync --frozen --no-dev --no-install-project
 
-# Default command for stdio transport
+# Default command for stdio transport. For HTTP, set MAL_TRANSPORT=http and
+# MAL_HTTP_HOST=0.0.0.0 and keep the port unpublished (see README, "HTTP mode").
 CMD ["/app/.venv/bin/python", "main.py"]
