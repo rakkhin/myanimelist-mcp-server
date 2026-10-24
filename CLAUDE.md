@@ -19,7 +19,7 @@ uv run python scripts/anonymize_fixtures.py  # regenerate tests/fixtures/mal/
 ```
 
 - Ruff line length is 79 (`.ruff.toml`). Coverage must be at least 95% in total (`fail_under` in `pyproject.toml`) and per file (`scripts/check_coverage.py`); CI enforces both.
-- Dependencies are managed with uv; the Dockerfile installs with `uv sync --frozen`, so update `uv.lock` (`uv lock`) whenever `pyproject.toml` changes. `fastmcp` is pinned to `~=4.0` on purpose.
+- Dependencies are managed with uv; the Dockerfile installs with `uv sync --frozen`, so update `uv.lock` (`uv lock`) whenever `pyproject.toml` changes. `fastmcp` is pinned to `~=4.1.2` on purpose: 4.1.2 is the first version without the authorization and OAuth advisories.
 
 ## Git workflow
 
