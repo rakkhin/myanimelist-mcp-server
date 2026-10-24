@@ -10,18 +10,24 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
+# Dependabot's pull_request runs get a read-only token whatever the jobs ask
+# for, so the steps that write (the image push and the PR comments) are
+# skipped for its PRs, which still build the image; the results of the skipped
+# steps are still in the job logs and summaries.
 jobs:
   version:
     uses: ./.github/workflows/version.yml
     permissions:
       contents: read
 
-  # Pushes an image only of code that passes the tests and the dependency scan.
+  # Builds the image of code that passes the tests and the dependency scan, and
+  # pushes it unless Dependabot's token cannot.
   container:
     needs: [version, test, dependency-scan]
     uses: ./.github/workflows/container.yml
     with:
       version: ${{ needs.version.outputs.semver }}
+      push: ${{ github.actor != 'dependabot[bot]' }}
     permissions:
       contents: read
       packages: write # push to ghcr.io
@@ -54,13 +60,13 @@ jobs:
         run: uv run --locked python scripts/check_coverage.py
 
       - name: Publish test report
-        if: ${{ !cancelled() && hashFiles('reports/junit.xml') != '' }}
+        if: ${{ !cancelled() && hashFiles('reports/junit.xml') != '' && github.actor != 'dependabot[bot]' }}
         uses: EnricoMi/publish-unit-test-result-action@7622c5bf3d112a72ab4fa3951c2aa5723d8ab92d # v2.25.0
         with:
           files: reports/junit.xml
 
       - name: Publish coverage report
-        if: ${{ !cancelled() && hashFiles('reports/coverage.xml') != '' }}
+        if: ${{ !cancelled() && hashFiles('reports/coverage.xml') != '' && github.actor != 'dependabot[bot]' }}
         uses: MishaKav/pytest-coverage-comment@9ee59af31bd7bcada1cc496f086b407122602dbd # v1.12.3
         with:
           pytest-xml-coverage-path: reports/coverage.xml
@@ -176,6 +182,7 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Publish dependency scan report
+        if: ${{ github.actor != 'dependabot[bot]' }}
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           REPORT: ${{ steps.report.outputs.report }}
