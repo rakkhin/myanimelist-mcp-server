@@ -4,7 +4,8 @@ name: Container
 # Raspberry Pi) and pushes it to the GitHub Container Registry as
 # ghcr.io/<owner>/<repository>, tagged with the given version and, when called
 # for a push to the default branch, also as latest. The caller's job must
-# grant packages: write.
+# grant packages: write. With push set to false it only builds the image, which
+# needs no registry access.
 on:
   workflow_call:
     inputs:
@@ -12,6 +13,11 @@ on:
         description: Image tag, such as the semver output of the Version workflow
         required: true
         type: string
+      push:
+        description: Push the image to the registry; false only builds it
+        required: false
+        default: true
+        type: boolean
 
 # No concurrency group: in a called workflow github.workflow is the caller's
 # name, so a group here would match the caller's own group and wait on it.
@@ -33,7 +39,8 @@ jobs:
 
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
-      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+      - if: ${{ inputs.push }}
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -55,7 +62,7 @@ jobs:
         with:
           context: .
           platforms: linux/amd64,linux/arm64
-          push: true
+          push: ${{ inputs.push }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           annotations: ${{ steps.meta.outputs.annotations }}
