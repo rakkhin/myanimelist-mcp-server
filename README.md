@@ -91,6 +91,13 @@ The server uses one MyAnimeList account, the one whose tokens are in the token f
 
 With both `MAL_CF_ACCESS_*` settings, every request must carry a valid Cloudflare Access JWT (`Cf-Access-Jwt-Assertion`, checked against the team's signing keys, issuer and the application's AUD tag); anything else gets `403`. This covers requests that reach the port without going through Cloudflare, such as other local processes or a web page in a browser on the same machine (DNS rebinding). Without them there is no check and the server prints a warning at startup; use that only behind another authentication layer.
 
+The access log (uvicorn's, on stdout) ends each line with the JSON-RPC method of the request, followed by the tool's name for tool calls, or `-` for requests without one, such as `GET` and `DELETE`, refused requests and responses to the server's own requests:
+
+```text
+INFO:     127.0.0.1:54728 - "POST /mcp HTTP/1.1" 200 OK tools/list
+INFO:     127.0.0.1:54742 - "POST /mcp HTTP/1.1" 200 OK tools/call get_anime
+```
+
 ### Behind Cloudflare Tunnel and Access (claude.ai custom connector)
 
 One way to use the server from claude.ai and the Claude apps, without opening a port:

@@ -17,6 +17,7 @@ from fastmcp import Client, FastMCP
 from payloads import tool_payload
 
 from main import _handle_shutdown_signal, create_server, main
+from utils.access_log import LOG_CONFIG, RPCMethodMiddleware
 from utils.cloudflare_access import AccessJWTMiddleware
 from utils.mal_client import MALAPIError, MALClient
 
@@ -139,10 +140,18 @@ def set_http_env(monkeypatch):
     monkeypatch.setenv("MAL_CF_ACCESS_AUD", ACCESS_AUD)
 
 
+def split_http_logging(kwargs):
+    """Check the access log setup and return the other run() arguments."""
+    kwargs = dict(kwargs)
+    assert kwargs.pop("uvicorn_config") == {"log_config": LOG_CONFIG}
+    rpc_method, *middleware = kwargs.pop("middleware")
+    assert rpc_method.cls is RPCMethodMiddleware
+    return kwargs, middleware
+
+
 def split_access_check(run):
-    """Return run()'s keyword arguments and check its only middleware."""
-    kwargs = dict(run.call_args.kwargs)
-    (middleware,) = kwargs.pop("middleware")
+    """Return run()'s keyword arguments and check its middleware."""
+    kwargs, (middleware,) = split_http_logging(run.call_args.kwargs)
     assert middleware.cls is AccessJWTMiddleware
     verifier = middleware.kwargs["verifier"]
     assert verifier.issuer == ACCESS_TEAM
@@ -203,13 +212,15 @@ def test_http_transport_without_access_settings_has_no_check(
 
     run, _ = run_main(monkeypatch)
 
-    run.assert_called_once_with(
-        transport="http",
-        middleware=[],
-        host="127.0.0.1",
-        port=8000,
-        path="/mcp",
-    )
+    run.assert_called_once()
+    kwargs, middleware = split_http_logging(run.call_args.kwargs)
+    assert middleware == []
+    assert kwargs == {
+        "transport": "http",
+        "host": "127.0.0.1",
+        "port": 8000,
+        "path": "/mcp",
+    }
     captured = capsys.readouterr()
     assert captured.out == ""
     assert "without the Cloudflare Access check" in captured.err
@@ -317,7 +328,7 @@ def test_http_server_runs_main(tmp_path, access_env, expected):
     main_py = Path(__file__).parents[1] / "main.py"
     process = subprocess.Popen(
         [sys.executable, str(main_py)],
-        stdout=subprocess.DEVNULL,
+        stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         cwd=tmp_path,
         env=env,
@@ -339,14 +350,20 @@ def test_http_server_runs_main(tmp_path, access_env, expected):
         }
     finally:
         process.terminate()
-        _, stderr = process.communicate(timeout=10)
+        stdout, stderr = process.communicate(timeout=10)
 
     assert {path: status for path, (status, _) in responses.items()} == (
         expected
     )
+    access_log = stdout.decode()
     if expected["/mal"] == 200:
         _, text = responses["/mal"]
         assert '"name":"myanimelist"' in text.replace(" ", "")
+        assert '"POST /mal HTTP/1.1" 200 OK initialize\n' in access_log
+        assert '"POST /mcp HTTP/1.1" 404 Not Found -\n' in access_log
+    else:
+        # Refused requests are logged without reading their bodies.
+        assert '"POST /mal HTTP/1.1" 403 Forbidden -\n' in access_log
     # uvicorn shuts down, then re-raises the signal it caught.
     assert b"Finished server process" in stderr
     assert process.returncode == -signal.SIGTERM
