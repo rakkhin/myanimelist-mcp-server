@@ -22,6 +22,7 @@ dev = [
 # Minimum versions for transitive dependencies with known vulnerabilities
 # below them; constraints do not add a dependency.
 constraint-dependencies = [
+    "joserfc>=1.7.6",
     "pygments>=2.20.0",
 ]
 

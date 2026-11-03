@@ -3,8 +3,10 @@ import signal
 import sys
 
 from fastmcp import FastMCP
+from starlette.middleware import Middleware
 
 from tools.tools import register_tools
+from utils.access_log import LOG_CONFIG, RPCMethodMiddleware
 from utils.cloudflare_access import access_middleware
 
 _TRANSPORTS = ("stdio", "http")
@@ -93,10 +95,10 @@ def main():
     if transport == "http":
         settings = _http_settings()
         access = _access_settings()
+        middleware = [Middleware(RPCMethodMiddleware)]
         if access:
-            middleware = [access_middleware(*access)]
+            middleware.append(access_middleware(*access))
         else:
-            middleware = []
             print(
                 "Serving HTTP without the Cloudflare Access check "
                 "(MAL_CF_ACCESS_TEAM_DOMAIN and MAL_CF_ACCESS_AUD are unset); "
@@ -105,7 +107,10 @@ def main():
             )
         # uvicorn handles SIGINT and SIGTERM itself.
         create_server().run(
-            transport="http", middleware=middleware, **settings
+            transport="http",
+            middleware=middleware,
+            uvicorn_config={"log_config": LOG_CONFIG},
+            **settings,
         )
         return
 

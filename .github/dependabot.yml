@@ -1,17 +1,25 @@
 version: 2
 updates:
-  # Python: security updates only. A limit of 0 turns off version updates;
-  # security updates have their own limit. Advisories raised together are
-  # fixed in one PR, so they do not conflict over uv.lock.
+  # Python: version updates of every locked package, transitive ones
+  # included, so fixes arrive even when GitHub raises no alert for them.
+  # Updates of each kind go in one PR, so they do not conflict over uv.lock.
+  # The cooldown skips releases newer than a week; security updates, raised
+  # as soon as an alert is, ignore it.
   - package-ecosystem: uv
     directory: /
     schedule:
       interval: weekly
-    open-pull-requests-limit: 0
+    cooldown:
+      default-days: 7
+    allow:
+      - dependency-type: all
     commit-message:
       prefix: build
       include: scope
     groups:
+      python:
+        applies-to: version-updates
+        patterns: ["*"]
       python-security:
         applies-to: security-updates
         patterns: ["*"]
