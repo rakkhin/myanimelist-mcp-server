@@ -67,7 +67,7 @@ jobs:
 
       - name: Publish coverage report
         if: ${{ !cancelled() && hashFiles('reports/coverage.xml') != '' && github.actor != 'dependabot[bot]' }}
-        uses: MishaKav/pytest-coverage-comment@93af7d8b7260ffe62dd0eb35bebd01c544f204e9 # v1.12.5
+        uses: MishaKav/pytest-coverage-comment@9516bf7f32a9229cf18d5e1717ae387c7154f279 # v1.13.0
         with:
           pytest-xml-coverage-path: reports/coverage.xml
           title: Coverage
