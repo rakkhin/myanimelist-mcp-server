@@ -1,11 +1,11 @@
 name: Container
 
 # Builds the image from the Dockerfile for amd64 and arm64 (such as a 64-bit
-# Raspberry Pi) and pushes it to the GitHub Container Registry as
-# ghcr.io/<owner>/<repository>, tagged with the given version and, when called
-# for a push to the default branch, also as latest. The caller's job must
-# grant packages: write. With push set to false it only builds the image, which
-# needs no registry access.
+# Raspberry Pi). When called for a push to the default branch, it also pushes
+# the image to the GitHub Container Registry as ghcr.io/<owner>/<repository>,
+# tagged with the given version and as latest; the caller's job must then
+# grant packages: write. Any other call only builds the image, which needs no
+# registry access, so its caller grants contents: read only.
 on:
   workflow_call:
     inputs:
@@ -13,11 +13,6 @@ on:
         description: Image tag, such as the semver output of the Version workflow
         required: true
         type: string
-      push:
-        description: Push the image to the registry; false only builds it
-        required: false
-        default: true
-        type: boolean
 
 # No concurrency group: in a called workflow github.workflow is the caller's
 # name, so a group here would match the caller's own group and wait on it.
@@ -26,9 +21,10 @@ jobs:
   container:
     runs-on: ubuntu-${{ vars.RUNNER_VERSION_UBUNTU }}
     timeout-minutes: 20
-    permissions:
-      contents: read
-      packages: write # push to ghcr.io
+    # No permissions here: the job gets the caller's, which only the push to
+    # the default branch extends with packages: write.
+    env:
+      PUSH: ${{ github.event_name == 'push' && github.ref_name == github.event.repository.default_branch }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -39,7 +35,7 @@ jobs:
 
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
-      - if: ${{ inputs.push }}
+      - if: ${{ env.PUSH == 'true' }}
         uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
         with:
           registry: ghcr.io
@@ -62,7 +58,7 @@ jobs:
         with:
           context: .
           platforms: linux/amd64,linux/arm64
-          push: ${{ inputs.push }}
+          push: ${{ env.PUSH == 'true' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           annotations: ${{ steps.meta.outputs.annotations }}
