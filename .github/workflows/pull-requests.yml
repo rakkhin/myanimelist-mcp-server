@@ -11,26 +11,23 @@ concurrency:
   cancel-in-progress: true
 
 # Dependabot's pull_request runs get a read-only token whatever the jobs ask
-# for, so the steps that write (the image push and the PR comments) are
-# skipped for its PRs, which still build the image; the results of the skipped
-# steps are still in the job logs and summaries.
+# for, so the steps that write (the PR comments) are skipped for its PRs; their
+# results are still in the job logs and summaries.
 jobs:
   version:
     uses: ./.github/workflows/version.yml
     permissions:
       contents: read
 
-  # Builds the image of code that passes the tests and the dependency scan, and
-  # pushes it unless Dependabot's token cannot.
+  # Builds the image of code that passes the tests and the dependency scan,
+  # without pushing it: only the Master workflow pushes images.
   container:
     needs: [version, test, dependency-scan]
     uses: ./.github/workflows/container.yml
     with:
       version: ${{ needs.version.outputs.semver }}
-      push: ${{ github.actor != 'dependabot[bot]' }}
     permissions:
       contents: read
-      packages: write # push to ghcr.io
 
   test:
     runs-on: ubuntu-${{ vars.RUNNER_VERSION_UBUNTU }}
