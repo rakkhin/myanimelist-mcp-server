@@ -1,15 +1,21 @@
 import os
+import re
 import signal
 import sys
+from pathlib import Path
 
 from fastmcp import FastMCP
 from starlette.middleware import Middleware
 
 from tools.tools import register_tools
 from utils.access_log import LOG_CONFIG, RPCMethodMiddleware
+from utils.bearer_auth import bearer_middleware
 from utils.cloudflare_access import access_middleware
 
 _TRANSPORTS = ("stdio", "http")
+# RFC 6750 b64token, so that clients can send the token unchanged.
+_BEARER_TOKEN = re.compile(r"[A-Za-z0-9\-._~+/]+=*")
+_MIN_BEARER_TOKEN_LENGTH = 32
 
 
 def create_server() -> FastMCP:
@@ -89,19 +95,60 @@ def _access_settings() -> tuple[str, str] | None:
     return team_domain, audience
 
 
+def _bearer_token() -> str | None:
+    """Read the static token HTTP requests must carry, if one is set.
+
+    The token comes from MAL_HTTP_BEARER_TOKEN or from the file named by
+    MAL_HTTP_BEARER_TOKEN_FILE (such as a Docker secret), not both. Error
+    messages never include the token.
+    """
+    token = os.getenv("MAL_HTTP_BEARER_TOKEN")
+    path = os.getenv("MAL_HTTP_BEARER_TOKEN_FILE")
+    if token and path:
+        raise ValueError(
+            "Set MAL_HTTP_BEARER_TOKEN or MAL_HTTP_BEARER_TOKEN_FILE, not both"
+        )
+    if path:
+        name = "MAL_HTTP_BEARER_TOKEN_FILE"
+        try:
+            # Files usually end with a newline.
+            token = Path(path).read_text(encoding="utf-8").strip()
+        except (OSError, UnicodeDecodeError) as error:
+            raise ValueError(
+                f"{name}: cannot read the token from {path!r}: {error}"
+            ) from error
+    elif token:
+        name = "MAL_HTTP_BEARER_TOKEN"
+    else:
+        return None
+    if len(token) < _MIN_BEARER_TOKEN_LENGTH or not _BEARER_TOKEN.fullmatch(
+        token
+    ):
+        raise ValueError(
+            f"{name} must give a token of at least "
+            f"{_MIN_BEARER_TOKEN_LENGTH} characters from A-Z, a-z, 0-9 and "
+            "-._~+/ (optionally ending in =), such as the output of "
+            "`openssl rand -hex 32`"
+        )
+    return token
+
+
 def main():
     # Validate the settings before anything starts listening.
     transport = _transport()
     if transport == "http":
         settings = _http_settings()
         access = _access_settings()
+        bearer_token = _bearer_token()
         middleware = [Middleware(RPCMethodMiddleware)]
         if access:
             middleware.append(access_middleware(*access))
-        else:
+        if bearer_token:
+            middleware.append(bearer_middleware(bearer_token))
+        if not access and not bearer_token:
             print(
-                "Serving HTTP without the Cloudflare Access check "
-                "(MAL_CF_ACCESS_TEAM_DOMAIN and MAL_CF_ACCESS_AUD are unset); "
+                "Serving HTTP without authentication (neither "
+                "MAL_HTTP_BEARER_TOKEN[_FILE] nor MAL_CF_ACCESS_* is set); "
                 "requests must be authenticated in front of this server.",
                 file=sys.stderr,
             )

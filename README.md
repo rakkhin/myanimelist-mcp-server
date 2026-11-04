@@ -12,7 +12,7 @@ MCP server for interacting with the MyAnimeList API from Hermes, Claude Desktop,
 - Episode schedule helper: `get_upcoming_anime_episodes`, upcoming episodes of the logged-in user's `watching` and `plan to watch` anime, with air times from [AniList](https://docs.anilist.co/).
 - Watch queue helper: `get_watch_queue`, combines the authenticated `watching` list with AniList air times to show per-anime watched vs latest released counts.
 - News RSS helper: `get_mal_news`, backed by `https://myanimelist.net/rss/news.xml`.
-- Streamable HTTP transport, with an optional Cloudflare Access check, for use as a custom connector in claude.ai and the Claude apps (see [HTTP mode](#http-mode)).
+- Streamable HTTP transport, with an optional static bearer token and Cloudflare Access check, for use as a custom connector in claude.ai and the Claude apps (see [HTTP mode](#http-mode)).
 - Tests, including runs of every read-only tool against anonymised recordings of real MyAnimeList responses.
 
 ## Requirements
@@ -48,6 +48,9 @@ MAL_TRANSPORT=stdio
 MAL_HTTP_HOST=127.0.0.1
 MAL_HTTP_PORT=8000
 MAL_HTTP_PATH=/mcp
+# Bearer token check: set one of these to turn it on.
+# MAL_HTTP_BEARER_TOKEN=<output of openssl rand -hex 32>
+# MAL_HTTP_BEARER_TOKEN_FILE=/run/secrets/mal_bearer_token
 # Cloudflare Access check: set both to turn it on, neither to leave it off.
 # MAL_CF_ACCESS_TEAM_DOMAIN=https://<team>.cloudflareaccess.com
 # MAL_CF_ACCESS_AUD=<AUD tag of the Access application>
@@ -81,15 +84,19 @@ MAL_TRANSPORT=http uv run main.py   # http://127.0.0.1:8000/mcp
 | `MAL_HTTP_HOST` | `127.0.0.1` | Address to listen on. |
 | `MAL_HTTP_PORT` | `8000` | Port to listen on. |
 | `MAL_HTTP_PATH` | `/mcp` | Path of the MCP endpoint. A reverse proxy or tunnel that forwards the public path unchanged needs the same path here. |
+| `MAL_HTTP_BEARER_TOKEN` | unset | Token every request must send as `Authorization: Bearer <token>`: at least 32 characters from `A-Z`, `a-z`, `0-9` and `-._~+/`, optionally ending in `=`, such as the output of `openssl rand -hex 32`. |
+| `MAL_HTTP_BEARER_TOKEN_FILE` | unset | File holding that token instead, such as a Docker secret; surrounding whitespace is ignored. Set this or `MAL_HTTP_BEARER_TOKEN`, not both. |
 | `MAL_CF_ACCESS_TEAM_DOMAIN` | unset | Cloudflare Access team domain, such as `https://<team>.cloudflareaccess.com`. |
 | `MAL_CF_ACCESS_AUD` | unset | AUD tag of the Access application protecting the endpoint. |
 | `FORWARDED_ALLOW_IPS` | `127.0.0.1,::1` | uvicorn's setting: addresses or networks trusted to send `X-Forwarded-For`, so that the access log shows the client's address instead of the proxy's. |
 
-Invalid values, or only one of the two `MAL_CF_ACCESS_*` settings, stop the server at startup with a message naming the variable.
+Invalid values, both bearer token settings, or only one of the two `MAL_CF_ACCESS_*` settings, stop the server at startup with a message naming the variable.
 
 The server uses one MyAnimeList account, the one whose tokens are in the token file, for every caller. **Anyone who can reach the endpoint can read and change that account's lists**, so never expose it without authentication in front of it. It listens on loopback by default, so only a local reverse proxy or tunnel connector can reach it. The `mal_auth_*` tools work over HTTP as well.
 
-With both `MAL_CF_ACCESS_*` settings, every request must carry a valid Cloudflare Access JWT (`Cf-Access-Jwt-Assertion`, checked against the team's signing keys, issuer and the application's AUD tag); anything else gets `403`. This covers requests that reach the port without going through Cloudflare, such as other local processes or a web page in a browser on the same machine (DNS rebinding). Without them there is no check and the server prints a warning at startup; use that only behind another authentication layer.
+With a bearer token, every request must carry `Authorization: Bearer <token>` with that token; anything else gets `401` with `WWW-Authenticate: Bearer`. The server publishes no OAuth metadata, so clients must be configured to send the token, for example as a request header. Use it only over HTTPS (a TLS-terminating reverse proxy or tunnel), since the token is sent in every request.
+
+With both `MAL_CF_ACCESS_*` settings, every request must carry a valid Cloudflare Access JWT (`Cf-Access-Jwt-Assertion`, checked against the team's signing keys, issuer and the application's AUD tag); anything else gets `403`. This covers requests that reach the port without going through Cloudflare, such as other local processes or a web page in a browser on the same machine (DNS rebinding). The two checks are independent: with both configured, a request must pass both. With neither, there is no check and the server prints a warning at startup; use that only behind another authentication layer.
 
 The access log (uvicorn's, on stdout) ends each line with the JSON-RPC method of the request, followed by the tool's name for tool calls, or `-` for requests without one, such as `GET` and `DELETE`, refused requests and responses to the server's own requests:
 
@@ -123,7 +130,7 @@ The callback server only listens while a login is pending and ignores callbacks 
 
 ### Docker
 
-The image runs stdio by default. For HTTP, set `MAL_TRANSPORT=http` and `MAL_HTTP_HOST=0.0.0.0`, run the container on a network shared only with `cloudflared` (or your reverse proxy), and do not publish the port. Keep the token file on a volume (`MAL_TOKEN_STORAGE_PATH`).
+The image runs stdio by default. For HTTP, set `MAL_TRANSPORT=http` and `MAL_HTTP_HOST=0.0.0.0`, run the container on a network shared only with `cloudflared` (or your reverse proxy), and do not publish the port. Keep the token file on a volume (`MAL_TOKEN_STORAGE_PATH`). A bearer token can come from a secret mounted as a file (`MAL_HTTP_BEARER_TOKEN_FILE`).
 
 ## Hermes MCP setup
 

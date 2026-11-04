@@ -9,6 +9,7 @@ import sys
 import time
 import urllib.error
 import urllib.request
+from http import HTTPStatus
 from pathlib import Path
 from unittest.mock import Mock
 
@@ -18,6 +19,7 @@ from payloads import tool_payload
 
 from main import _handle_shutdown_signal, create_server, main
 from utils.access_log import LOG_CONFIG, RPCMethodMiddleware
+from utils.bearer_auth import BearerTokenMiddleware
 from utils.cloudflare_access import AccessJWTMiddleware
 from utils.mal_client import MALAPIError, MALClient
 
@@ -132,6 +134,7 @@ def test_signal_stops_server_while_stdin_is_open(signum, tmp_path):
 
 ACCESS_TEAM = "https://team.cloudflareaccess.com"
 ACCESS_AUD = "0123abcd"
+BEARER_TOKEN = "0123456789abcdef0123456789abcdef"
 
 
 def set_http_env(monkeypatch):
@@ -205,7 +208,7 @@ def test_http_transport_uses_configured_settings(monkeypatch):
     }
 
 
-def test_http_transport_without_access_settings_has_no_check(
+def test_http_transport_without_auth_settings_has_no_check(
     monkeypatch, capsys
 ):
     monkeypatch.setenv("MAL_TRANSPORT", "http")
@@ -223,7 +226,109 @@ def test_http_transport_without_access_settings_has_no_check(
     }
     captured = capsys.readouterr()
     assert captured.out == ""
-    assert "without the Cloudflare Access check" in captured.err
+    assert "without authentication" in captured.err
+
+
+@pytest.mark.parametrize("access", [False, True])
+def test_http_transport_with_bearer_token_checks_it(
+    monkeypatch, capsys, access
+):
+    if access:
+        set_http_env(monkeypatch)
+    else:
+        monkeypatch.setenv("MAL_TRANSPORT", "http")
+    monkeypatch.setenv("MAL_HTTP_BEARER_TOKEN", BEARER_TOKEN)
+
+    run, _ = run_main(monkeypatch)
+
+    run.assert_called_once()
+    _, middleware = split_http_logging(run.call_args.kwargs)
+    *access_check, bearer = middleware
+    assert [m.cls for m in access_check] == (
+        [AccessJWTMiddleware] if access else []
+    )
+    assert bearer.cls is BearerTokenMiddleware
+    assert bearer.kwargs == {"token": BEARER_TOKEN}
+    assert capsys.readouterr().err == ""
+
+
+def test_bearer_token_is_read_from_file(monkeypatch, tmp_path):
+    monkeypatch.setenv("MAL_TRANSPORT", "http")
+    token_file = tmp_path / "token"
+    token_file.write_text(f"{BEARER_TOKEN}\n")
+    monkeypatch.setenv("MAL_HTTP_BEARER_TOKEN_FILE", str(token_file))
+
+    run, _ = run_main(monkeypatch)
+
+    _, (bearer,) = split_http_logging(run.call_args.kwargs)
+    assert bearer.kwargs == {"token": BEARER_TOKEN}
+
+
+@pytest.mark.parametrize(
+    ("env", "match"),
+    [
+        pytest.param(
+            {"MAL_HTTP_BEARER_TOKEN": BEARER_TOKEN[:-1]},
+            "MAL_HTTP_BEARER_TOKEN must",
+            id="too-short",
+        ),
+        pytest.param(
+            {"MAL_HTTP_BEARER_TOKEN": f"{BEARER_TOKEN} x"},
+            "MAL_HTTP_BEARER_TOKEN must",
+            id="space",
+        ),
+        pytest.param(
+            {"MAL_HTTP_BEARER_TOKEN": f"={BEARER_TOKEN}"},
+            "MAL_HTTP_BEARER_TOKEN must",
+            id="padding-first",
+        ),
+        pytest.param(
+            {"MAL_HTTP_BEARER_TOKEN": f"{BEARER_TOKEN}é"},
+            "MAL_HTTP_BEARER_TOKEN must",
+            id="not-ascii",
+        ),
+        pytest.param(
+            {
+                "MAL_HTTP_BEARER_TOKEN": BEARER_TOKEN,
+                "MAL_HTTP_BEARER_TOKEN_FILE": "token",
+            },
+            "not both",
+            id="both",
+        ),
+        pytest.param(
+            {"MAL_HTTP_BEARER_TOKEN_FILE": "missing"},
+            "MAL_HTTP_BEARER_TOKEN_FILE: cannot read",
+            id="missing-file",
+        ),
+        pytest.param(
+            {"MAL_HTTP_BEARER_TOKEN_FILE": "empty"},
+            "MAL_HTTP_BEARER_TOKEN_FILE must",
+            id="empty-file",
+        ),
+        pytest.param(
+            {"MAL_HTTP_BEARER_TOKEN_FILE": "latin1"},
+            "MAL_HTTP_BEARER_TOKEN_FILE: cannot read",
+            id="not-utf8-file",
+        ),
+    ],
+)
+def test_invalid_bearer_token_fails_before_server_starts(
+    monkeypatch, tmp_path, env, match
+):
+    monkeypatch.setenv("MAL_TRANSPORT", "http")
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "empty").write_text("\n")
+    (tmp_path / "latin1").write_bytes(f"{BEARER_TOKEN}\xe9".encode("latin-1"))
+    for name, value in env.items():
+        monkeypatch.setenv(name, value)
+    run = Mock()
+    monkeypatch.setattr(FastMCP, "run", run)
+
+    with pytest.raises(ValueError, match=match) as raised:
+        main()
+
+    assert BEARER_TOKEN not in str(raised.value)
+    run.assert_not_called()
 
 
 def test_empty_transport_setting_means_stdio(monkeypatch):
@@ -296,7 +401,7 @@ def _post_initialize(url):
 # Run main.py on HTTP for real. MCP behind the Access check is tested with a
 # signed JWT in test_cloudflare_access.py.
 @pytest.mark.parametrize(
-    ("access_env", "expected"),
+    ("auth_env", "expected"),
     [
         pytest.param(
             # Never contacted: requests without a JWT are refused before
@@ -308,10 +413,15 @@ def _post_initialize(url):
             {"/mal": 403, "/mcp": 403},
             id="access-check",
         ),
-        pytest.param({}, {"/mal": 200, "/mcp": 404}, id="no-access-check"),
+        pytest.param(
+            {"MAL_HTTP_BEARER_TOKEN": BEARER_TOKEN},
+            {"/mal": 401, "/mcp": 401},
+            id="bearer-check",
+        ),
+        pytest.param({}, {"/mal": 200, "/mcp": 404}, id="no-auth-check"),
     ],
 )
-def test_http_server_runs_main(tmp_path, access_env, expected):
+def test_http_server_runs_main(tmp_path, auth_env, expected):
     port = _free_port()
     env = {
         **os.environ,
@@ -323,7 +433,7 @@ def test_http_server_runs_main(tmp_path, access_env, expected):
         "MAL_HTTP_PATH": "/mal",
         "FASTMCP_SHOW_SERVER_BANNER": "false",
         "FASTMCP_CHECK_FOR_UPDATES": "off",
-        **access_env,
+        **auth_env,
     }
     main_py = Path(__file__).parents[1] / "main.py"
     process = subprocess.Popen(
@@ -363,7 +473,9 @@ def test_http_server_runs_main(tmp_path, access_env, expected):
         assert '"POST /mcp HTTP/1.1" 404 Not Found -\n' in access_log
     else:
         # Refused requests are logged without reading their bodies.
-        assert '"POST /mal HTTP/1.1" 403 Forbidden -\n' in access_log
+        status = HTTPStatus(expected["/mal"])
+        line = f'"POST /mal HTTP/1.1" {status.value} {status.phrase} -\n'
+        assert line in access_log
     # uvicorn shuts down, then re-raises the signal it caught.
     assert b"Finished server process" in stderr
     assert process.returncode == -signal.SIGTERM
