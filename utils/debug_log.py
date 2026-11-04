@@ -2,9 +2,10 @@
 
 Each request is written as one JSON line to the "mal.http.debug" logger:
 client address, method, path, query string, every header and the body.
-Nothing is redacted, so the log holds the credentials clients send (bearer
-tokens, Access JWTs and service token secrets): turn it on only while
-debugging, and treat the log as a secret.
+The values of credential headers (CREDENTIAL_HEADERS) are replaced by their
+length, after the authentication scheme for Authorization, which is enough
+to tell whether a client sends the right kind of token. The body is logged
+as sent, tool arguments included.
 
 The middleware reads the whole body before passing the request on, so that
 requests the authentication checks refuse are logged with their bodies too,
@@ -22,11 +23,34 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 LOGGER_NAME = "mal.http.debug"
 logger = logging.getLogger(LOGGER_NAME)
 
+# Lowercase, as ASGI servers pass header names.
+CREDENTIAL_HEADERS = frozenset(
+    (
+        "authorization",
+        "proxy-authorization",
+        "cookie",
+        "cf-access-jwt-assertion",
+        "cf-access-client-secret",
+    )
+)
+# Headers whose value starts with an authentication scheme (RFC 9110).
+_SCHEME_HEADERS = frozenset(("authorization", "proxy-authorization"))
+
 
 def _latin1(value: bytes) -> str:
     # ASGI servers pass header names and values and the query string as
     # bytes; latin-1 maps every byte, as in Starlette's Headers.
     return value.decode("latin-1")
+
+
+def _header(name: bytes, value: bytes) -> list[str]:
+    name, value = _latin1(name), _latin1(value)
+    if name.lower() not in CREDENTIAL_HEADERS:
+        return [name, value]
+    scheme, space, credentials = value.partition(" ")
+    if name.lower() in _SCHEME_HEADERS and space:
+        return [name, f"{scheme} <redacted, {len(credentials)} chars>"]
+    return [name, f"<redacted, {len(value)} chars>"]
 
 
 def request_record(scope: Scope, body: bytes) -> str:
@@ -41,8 +65,7 @@ def request_record(scope: Scope, body: bytes) -> str:
             "path": scope["path"],
             "query": _latin1(scope.get("query_string", b"")),
             "headers": [
-                [_latin1(name), _latin1(value)]
-                for name, value in scope["headers"]
+                _header(name, value) for name, value in scope["headers"]
             ],
             "body": body.decode("utf-8", errors="backslashreplace"),
         },

@@ -163,7 +163,7 @@ def main():
             middleware.insert(0, Middleware(RequestDebugMiddleware))
             print(
                 "MAL_HTTP_DEBUG is on: logging every HTTP request in full, "
-                "including the credentials it carries.",
+                "with credential headers redacted.",
                 file=sys.stderr,
             )
         if access:

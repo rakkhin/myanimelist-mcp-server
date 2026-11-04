@@ -54,7 +54,7 @@ MAL_HTTP_PATH=/mcp
 # Cloudflare Access check: set both to turn it on, neither to leave it off.
 # MAL_CF_ACCESS_TEAM_DOMAIN=https://<team>.cloudflareaccess.com
 # MAL_CF_ACCESS_AUD=<AUD tag of the Access application>
-# Log every request in full, credentials included (debugging only):
+# Log every request in full, credential headers redacted (debugging only):
 # MAL_HTTP_DEBUG=1
 ```
 
@@ -108,7 +108,7 @@ INFO:     127.0.0.1:54728 - "POST /mcp HTTP/1.1" 200 OK tools/list
 INFO:     127.0.0.1:54742 - "POST /mcp HTTP/1.1" 200 OK tools/call get_anime
 ```
 
-With `MAL_HTTP_DEBUG` on, the server also logs each request as one JSON line on stderr, before any check, so refused requests are included: client address, method, path, query string, every header and the body. **Nothing is redacted**: the log holds the bearer token, Access JWTs, service token secrets and tool arguments, so turn it on only while debugging a client and treat the log as a secret. Requests FastMCP's Host and Origin check refuses are not logged.
+With `MAL_HTTP_DEBUG` on, the server also logs each request as one JSON line on stderr, before any check, so refused requests are included: client address, method, path, query string, every header and the body. The values of credential headers (`Authorization`, `Proxy-Authorization`, `Cookie`, `Cf-Access-Jwt-Assertion` and `CF-Access-Client-Secret`) are replaced by their length, after the scheme for the authorization headers, such as `Bearer <redacted, 64 chars>`, which is enough to tell whether a client sends the right kind of token. The body is logged as sent, tool arguments included, so turn it on only while debugging a client. Requests FastMCP's Host and Origin check refuses are not logged.
 
 ```text
 DEBUG:    Request {"client": "127.0.0.1:54728", "method": "POST", "scheme": "http", "http_version": "1.1", "path": "/mcp", "query": "", "headers": [["host", "127.0.0.1:8000"], ...], "body": "{\"jsonrpc\":\"2.0\",...}"}

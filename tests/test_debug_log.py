@@ -62,9 +62,35 @@ def test_logs_the_whole_request_and_passes_the_body_on(records):
         "query": "a=1&b=2",
         "body": body,
     }
-    # Credentials are logged as sent.
-    assert ["authorization", f"Bearer {TOKEN}"] in headers
+    assert ["authorization", "Bearer <redacted, 32 chars>"] in headers
     assert ["x-two", "x"] in headers
+
+
+@pytest.mark.parametrize(
+    ("name", "value", "logged"),
+    [
+        ("Authorization", f"bearer {TOKEN}", "bearer <redacted, 32 chars>"),
+        ("Authorization", f"Bearer  {TOKEN}", "Bearer <redacted, 33 chars>"),
+        ("Authorization", TOKEN, "<redacted, 32 chars>"),
+        ("Authorization", "", "<redacted, 0 chars>"),
+        (
+            "Proxy-Authorization",
+            "Basic dXNlcjpwYXNz",
+            "Basic <redacted, 12 chars>",
+        ),
+        ("Cookie", "CF_Authorization=jwt; a=b", "<redacted, 25 chars>"),
+        ("Cf-Access-Jwt-Assertion", "a.b c", "<redacted, 5 chars>"),
+        ("CF-Access-Client-Secret", "s3cret", "<redacted, 6 chars>"),
+        # The Access client id names the service token; it is no secret.
+        ("CF-Access-Client-Id", "id.access", "id.access"),
+    ],
+)
+def test_credential_headers_are_redacted(records, name, value, logged):
+    client = TestClient(echo_app())
+
+    client.post("/mal", headers={name: value})
+
+    assert [name.lower(), logged] in records()[0]["headers"]
 
 
 def test_record_is_one_line(caplog, records):
