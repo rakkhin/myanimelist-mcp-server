@@ -59,8 +59,9 @@ def test_logs_the_whole_request_and_passes_the_body_on(records):
         "scheme": "http",
         "http_version": "1.1",
         "path": "/mal",
-        "query": "a=1&b=2",
+        "query": "a=<redacted, 1 chars>&b=<redacted, 1 chars>",
         "body": body,
+        "body_truncated": False,
     }
     assert ["authorization", "Bearer <redacted, 32 chars>"] in headers
     assert ["x-two", "x"] in headers
@@ -91,6 +92,24 @@ def test_credential_headers_are_redacted(records, name, value, logged):
     client.post("/mal", headers={name: value})
 
     assert [name.lower(), logged] in records()[0]["headers"]
+
+
+@pytest.mark.parametrize(
+    ("query", "logged"),
+    [
+        ("token=" + TOKEN, "token=<redacted, 32 chars>"),
+        (
+            "a=&flag&&b=x%20y=z",
+            "a=<redacted, 0 chars>&flag&&b=<redacted, 7 chars>",
+        ),
+    ],
+)
+def test_query_values_are_redacted(records, query, logged):
+    client = TestClient(echo_app())
+
+    client.get(f"/mal?{query}")
+
+    assert records()[0]["query"] == logged
 
 
 def test_record_is_one_line(caplog, records):
@@ -125,15 +144,22 @@ def test_logs_requests_without_body(records):
     assert records()[0]["body"] == ""
 
 
-def call_middleware(scope, messages):
-    """Run the middleware on raw ASGI messages; return what the app read."""
+def call_middleware(scope, messages, **options):
+    """Run the middleware on raw ASGI messages.
+
+    Return what the app read and how many messages the middleware left
+    unread for it.
+    """
     read = []
-    # The middleware takes the messages from the list before the app runs.
+    unread = []
     count = len(messages) + 1
 
     async def app(scope, receive, send):
+        unread.append(len(messages))
         for _ in range(count):
             read.append(await receive())
+            if read[-1]["type"] == "http.disconnect":
+                break
 
     async def receive():
         return messages.pop(0) if messages else {"type": "http.disconnect"}
@@ -141,8 +167,9 @@ def call_middleware(scope, messages):
     async def send(message):  # pragma: no cover - the app sends nothing
         pass
 
-    anyio.run(RequestDebugMiddleware(app), scope, receive, send)
-    return read
+    middleware = RequestDebugMiddleware(app, **options)
+    anyio.run(middleware, scope, receive, send)
+    return read, unread[0]
 
 
 HTTP_SCOPE = {
@@ -159,12 +186,13 @@ def test_body_in_several_chunks_is_logged_and_replayed(records):
         {"type": "http.request", "body": b"cd", "more_body": False},
     ]
 
-    read = call_middleware(HTTP_SCOPE, list(chunks))
+    read, _ = call_middleware(HTTP_SCOPE, list(chunks))
 
     # The app gets the same messages, then reads from the server again.
     assert read == [*chunks, {"type": "http.disconnect"}]
     (record,) = records()
     assert record["body"] == "abcd"
+    assert record["body_truncated"] is False
     assert record["client"] is None
     assert record["query"] == ""
     assert record["headers"] == [["x-raw", "é"]]
@@ -176,14 +204,62 @@ def test_client_leaving_mid_body_is_logged_and_replayed(records):
         {"type": "http.disconnect"},
     ]
 
-    read = call_middleware(HTTP_SCOPE, list(messages))
+    read, _ = call_middleware(HTTP_SCOPE, list(messages))
 
-    assert read[:2] == messages
+    assert read == messages
     assert records()[0]["body"] == "ab"
 
 
+def test_body_past_the_limit_is_cut_and_the_rest_left_to_the_app(records):
+    chunks = [
+        {"type": "http.request", "body": b"ab", "more_body": True},
+        {"type": "http.request", "body": b"cd", "more_body": True},
+        {"type": "http.request", "body": b"ef", "more_body": False},
+    ]
+
+    read, unread = call_middleware(HTTP_SCOPE, list(chunks), body_limit=3)
+
+    # It stops reading once past the limit; the app reads the rest.
+    assert unread == 1
+    assert read == [*chunks, {"type": "http.disconnect"}]
+    (record,) = records()
+    assert record["body"] == "abc"
+    assert record["body_truncated"] is True
+
+
+@pytest.mark.parametrize(
+    ("chunks", "limit", "body", "truncated"),
+    [
+        ([b"abcd"], 4, "abcd", False),
+        ([b"ab", b"cd", b""], 4, "abcd", False),
+        ([b"abcd"], 3, "abc", True),
+        ([b""], 0, "", False),
+        ([b"x"], 0, "", True),
+        # A character cut in two is escaped like any invalid UTF-8.
+        (["é".encode()], 1, "\\xc3", True),
+    ],
+)
+def test_body_limit(records, chunks, limit, body, truncated):
+    messages = [
+        {"type": "http.request", "body": chunk, "more_body": True}
+        for chunk in chunks
+    ]
+    messages[-1]["more_body"] = False
+
+    read, _ = call_middleware(HTTP_SCOPE, list(messages), body_limit=limit)
+
+    assert read[: len(messages)] == messages
+    (record,) = records()
+    assert record["body"] == body
+    assert record["body_truncated"] is truncated
+
+
+def test_default_body_limit_is_128_kib():
+    assert RequestDebugMiddleware(None).body_limit == 128 * 1024
+
+
 def test_other_scopes_pass_through(records):
-    read = call_middleware({"type": "lifespan"}, [{"type": "x"}])
+    read, _ = call_middleware({"type": "lifespan"}, [{"type": "x"}])
 
     assert read[0] == {"type": "x"}
     assert records() == []

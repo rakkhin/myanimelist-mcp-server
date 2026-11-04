@@ -91,6 +91,7 @@ MAL_TRANSPORT=http uv run main.py   # http://127.0.0.1:8000/mcp
 | `MAL_CF_ACCESS_TEAM_DOMAIN` | unset | Cloudflare Access team domain, such as `https://<team>.cloudflareaccess.com`. |
 | `MAL_CF_ACCESS_AUD` | unset | AUD tag of the Access application protecting the endpoint. |
 | `MAL_HTTP_DEBUG` | off | `1`, `true`, `yes` or `on` logs every request in full (see below); `0`, `false`, `no`, `off` or empty leaves it off. |
+| `MAL_HTTP_DEBUG_BODY_LIMIT` | `131072` (128 KiB) | Bytes of each request body the debug log keeps; longer bodies are cut. `0` logs no body. |
 | `FORWARDED_ALLOW_IPS` | `127.0.0.1,::1` | uvicorn's setting: addresses or networks trusted to send `X-Forwarded-For`, so that the access log shows the client's address instead of the proxy's. |
 
 Invalid values, both bearer token settings, or only one of the two `MAL_CF_ACCESS_*` settings, stop the server at startup with a message naming the variable.
@@ -108,10 +109,10 @@ INFO:     127.0.0.1:54728 - "POST /mcp HTTP/1.1" 200 OK tools/list
 INFO:     127.0.0.1:54742 - "POST /mcp HTTP/1.1" 200 OK tools/call get_anime
 ```
 
-With `MAL_HTTP_DEBUG` on, the server also logs each request as one JSON line on stderr, before any check, so refused requests are included: client address, method, path, query string, every header and the body. The values of credential headers (`Authorization`, `Proxy-Authorization`, `Cookie`, `Cf-Access-Jwt-Assertion` and `CF-Access-Client-Secret`) are replaced by their length, after the scheme for the authorization headers, such as `Bearer <redacted, 64 chars>`, which is enough to tell whether a client sends the right kind of token. The body is logged as sent, tool arguments included, so turn it on only while debugging a client. Requests FastMCP's Host and Origin check refuses are not logged.
+With `MAL_HTTP_DEBUG` on, the server also logs each request as one JSON line on stderr, before any check, so refused requests are included: client address, method, path, query string, every header and the body. The values of credential headers (`Authorization`, `Proxy-Authorization`, `Cookie`, `Cf-Access-Jwt-Assertion` and `CF-Access-Client-Secret`) are replaced by their length, after the scheme for the authorization headers, such as `Bearer <redacted, 64 chars>`, which is enough to tell whether a client sends the right kind of token. Query parameters keep their names, but their values are replaced by their length too (`token=<redacted, 64 chars>`). The body is logged as sent, tool arguments included, up to `MAL_HTTP_DEBUG_BODY_LIMIT` bytes; `body_truncated` says whether it was cut. The server only holds that much of a body before the checks run, so clients without credentials cannot make it buffer large bodies. Turn the log on only while debugging a client. Requests FastMCP's Host and Origin check refuses are not logged.
 
 ```text
-DEBUG:    Request {"client": "127.0.0.1:54728", "method": "POST", "scheme": "http", "http_version": "1.1", "path": "/mcp", "query": "", "headers": [["host", "127.0.0.1:8000"], ...], "body": "{\"jsonrpc\":\"2.0\",...}"}
+DEBUG:    Request {"client": "127.0.0.1:54728", "method": "POST", "scheme": "http", "http_version": "1.1", "path": "/mcp", "query": "", "headers": [["host", "127.0.0.1:8000"], ...], "body": "{\"jsonrpc\":\"2.0\",...}", "body_truncated": false}
 ```
 
 ### Behind Cloudflare Tunnel and Access (claude.ai custom connector)

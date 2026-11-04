@@ -4,12 +4,16 @@ Each request is written as one JSON line to the "mal.http.debug" logger:
 client address, method, path, query string, every header and the body.
 The values of credential headers (CREDENTIAL_HEADERS) are replaced by their
 length, after the authentication scheme for Authorization, which is enough
-to tell whether a client sends the right kind of token. The body is logged
-as sent, tool arguments included.
+to tell whether a client sends the right kind of token. Query parameters
+keep their names, but their values are replaced by their length too, since
+some clients put tokens there. The body is logged as sent, tool arguments
+included, up to the body limit (MAL_HTTP_DEBUG_BODY_LIMIT bytes).
 
-The middleware reads the whole body before passing the request on, so that
-requests the authentication checks refuse are logged with their bodies too,
-then replays it to the app unchanged. JSON escapes line breaks and control
+The middleware reads the body up to that limit before passing the request
+on, so that requests the authentication checks refuse are logged with their
+bodies too, then replays it to the app unchanged, followed by the rest of
+the body. The limit keeps clients, authenticated or not, from making the
+server hold large bodies in memory. JSON escapes line breaks and control
 characters, so clients cannot forge log lines.
 """
 
@@ -22,6 +26,8 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 LOGGER_NAME = "mal.http.debug"
 logger = logging.getLogger(LOGGER_NAME)
+
+DEFAULT_BODY_LIMIT = 128 * 1024
 
 # Lowercase, as ASGI servers pass header names.
 CREDENTIAL_HEADERS = frozenset(
@@ -53,7 +59,18 @@ def _header(name: bytes, value: bytes) -> list[str]:
     return [name, f"<redacted, {len(value)} chars>"]
 
 
-def request_record(scope: Scope, body: bytes) -> str:
+def _query(query_string: bytes) -> str:
+    # Keep the query's shape and names as sent; only the values are hidden.
+    parts = []
+    for part in _latin1(query_string).split("&"):
+        name, equals, value = part.partition("=")
+        parts.append(
+            f"{name}=<redacted, {len(value)} chars>" if equals else name
+        )
+    return "&".join(parts)
+
+
+def request_record(scope: Scope, body: bytes, *, body_truncated: bool) -> str:
     """Describe a request as one JSON line."""
     client = scope.get("client")
     return json.dumps(
@@ -63,11 +80,12 @@ def request_record(scope: Scope, body: bytes) -> str:
             "scheme": scope.get("scheme", "http"),
             "http_version": scope.get("http_version", "1.1"),
             "path": scope["path"],
-            "query": _latin1(scope.get("query_string", b"")),
+            "query": _query(scope.get("query_string", b"")),
             "headers": [
                 _header(name, value) for name, value in scope["headers"]
             ],
             "body": body.decode("utf-8", errors="backslashreplace"),
+            "body_truncated": body_truncated,
         },
         ensure_ascii=False,
     )
@@ -76,8 +94,11 @@ def request_record(scope: Scope, body: bytes) -> str:
 class RequestDebugMiddleware:
     """Log each HTTP request, headers and body included, before handling it."""
 
-    def __init__(self, app: ASGIApp) -> None:
+    def __init__(
+        self, app: ASGIApp, body_limit: int = DEFAULT_BODY_LIMIT
+    ) -> None:
         self.app = app
+        self.body_limit = body_limit
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send):
         if scope["type"] != "http":
@@ -92,9 +113,19 @@ class RequestDebugMiddleware:
             if message["type"] != "http.request":
                 break  # http.disconnect: the client went away.
             body.extend(message.get("body", b""))
-            if not message.get("more_body", False):
+            # Past the limit, the app reads the rest from the server.
+            if not message.get("more_body", False) or (
+                len(body) > self.body_limit
+            ):
                 break
-        logger.debug("Request %s", request_record(scope, bytes(body)))
+        logger.debug(
+            "Request %s",
+            request_record(
+                scope,
+                bytes(body[: self.body_limit]),
+                body_truncated=len(body) > self.body_limit,
+            ),
+        )
 
         async def replay() -> Message:
             if received:

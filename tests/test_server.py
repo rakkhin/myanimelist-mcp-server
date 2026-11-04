@@ -262,9 +262,23 @@ def test_http_debug_logs_requests_before_any_check(monkeypatch, capsys, value):
 
     debug, rpc_method, access = run.call_args.kwargs["middleware"]
     assert debug.cls is RequestDebugMiddleware
+    assert debug.kwargs == {"body_limit": 128 * 1024}
     assert rpc_method.cls is RPCMethodMiddleware
     assert access.cls is AccessJWTMiddleware
     assert "MAL_HTTP_DEBUG is on" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(("value", "limit"), [("0", 0), ("4096", 4096)])
+def test_http_debug_body_limit(monkeypatch, capsys, value, limit):
+    set_http_env(monkeypatch)
+    monkeypatch.setenv("MAL_HTTP_DEBUG", "1")
+    monkeypatch.setenv("MAL_HTTP_DEBUG_BODY_LIMIT", value)
+
+    run, _ = run_main(monkeypatch)
+
+    debug = run.call_args.kwargs["middleware"][0]
+    assert debug.kwargs == {"body_limit": limit}
+    assert f"cut at {limit} bytes" in capsys.readouterr().err
 
 
 @pytest.mark.parametrize("value", ["", "0", "false", "No", "off"])
@@ -379,6 +393,9 @@ def test_empty_transport_setting_means_stdio(monkeypatch):
         ("MAL_CF_ACCESS_TEAM_DOMAIN", "team.cloudflareaccess.com"),
         ("MAL_CF_ACCESS_AUD", ""),
         ("MAL_HTTP_DEBUG", "maybe"),
+        ("MAL_HTTP_DEBUG_BODY_LIMIT", "-1"),
+        ("MAL_HTTP_DEBUG_BODY_LIMIT", "128KiB"),
+        ("MAL_HTTP_DEBUG_BODY_LIMIT", "\uff11"),
     ],
 )
 def test_invalid_setting_fails_before_server_starts(monkeypatch, name, value):

@@ -11,7 +11,7 @@ from tools.tools import register_tools
 from utils.access_log import LOG_CONFIG, RPCMethodMiddleware
 from utils.bearer_auth import bearer_middleware
 from utils.cloudflare_access import access_middleware
-from utils.debug_log import RequestDebugMiddleware
+from utils.debug_log import DEFAULT_BODY_LIMIT, RequestDebugMiddleware
 
 _TRANSPORTS = ("stdio", "http")
 # RFC 6750 b64token, so that clients can send the token unchanged.
@@ -150,6 +150,17 @@ def _http_debug() -> bool:
         ) from None
 
 
+def _http_debug_body_limit() -> int:
+    """Read how many body bytes the debug log keeps per request."""
+    value = os.getenv("MAL_HTTP_DEBUG_BODY_LIMIT") or str(DEFAULT_BODY_LIMIT)
+    if not value.isdecimal() or not value.isascii():
+        raise ValueError(
+            "MAL_HTTP_DEBUG_BODY_LIMIT must be a number of bytes (0 or "
+            f"more), got {value!r}"
+        )
+    return int(value)
+
+
 def main():
     # Validate the settings before anything starts listening.
     transport = _transport()
@@ -157,13 +168,17 @@ def main():
         settings = _http_settings()
         access = _access_settings()
         bearer_token = _bearer_token()
+        body_limit = _http_debug_body_limit()
         middleware = [Middleware(RPCMethodMiddleware)]
         if _http_debug():
             # First, so that requests the checks refuse are logged too.
-            middleware.insert(0, Middleware(RequestDebugMiddleware))
+            middleware.insert(
+                0, Middleware(RequestDebugMiddleware, body_limit=body_limit)
+            )
             print(
                 "MAL_HTTP_DEBUG is on: logging every HTTP request in full, "
-                "with credential headers redacted.",
+                "with credentials and query values redacted and bodies cut "
+                f"at {body_limit} bytes.",
                 file=sys.stderr,
             )
         if access:
