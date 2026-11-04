@@ -28,8 +28,13 @@ class BearerTokenMiddleware:
         self.token = token.encode("ascii")
 
     def _authorized(self, headers: Headers) -> bool:
+        # Authorization is a singleton field (RFC 9110). With several, which
+        # one counts would depend on their order, so none does.
+        values = headers.getlist("authorization")
+        if len(values) != 1:
+            return False
         # The scheme is case-insensitive (RFC 7235).
-        scheme, _, token = headers.get("authorization", "").partition(" ")
+        scheme, _, token = values[0].partition(" ")
         # Starlette decodes header values as latin-1, so this cannot fail;
         # compare_digest takes the same time wherever the tokens differ.
         return scheme.lower() == "bearer" and hmac.compare_digest(

@@ -68,6 +68,22 @@ def test_request_without_the_token_is_refused(authorization):
     assert calls == []
 
 
+@pytest.mark.parametrize("valid_first", [True, False])
+def test_request_with_several_authorization_headers_is_refused(valid_first):
+    calls = []
+    client = TestClient(protected_app(calls))
+    values = [f"Bearer {TOKEN}", "Bearer other"]
+    if not valid_first:
+        values.reverse()
+
+    response = client.get(
+        "/mal", headers=[("Authorization", value) for value in values]
+    )
+
+    assert response.status_code == 401
+    assert calls == []
+
+
 def test_lifespan_reaches_the_app():
     started = []
 
