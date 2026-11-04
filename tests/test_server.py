@@ -21,6 +21,7 @@ from main import _handle_shutdown_signal, create_server, main
 from utils.access_log import LOG_CONFIG, RPCMethodMiddleware
 from utils.bearer_auth import BearerTokenMiddleware
 from utils.cloudflare_access import AccessJWTMiddleware
+from utils.debug_log import RequestDebugMiddleware
 from utils.mal_client import MALAPIError, MALClient
 
 
@@ -252,6 +253,31 @@ def test_http_transport_with_bearer_token_checks_it(
     assert capsys.readouterr().err == ""
 
 
+@pytest.mark.parametrize("value", ["1", "true", "Yes", " ON "])
+def test_http_debug_logs_requests_before_any_check(monkeypatch, capsys, value):
+    set_http_env(monkeypatch)
+    monkeypatch.setenv("MAL_HTTP_DEBUG", value)
+
+    run, _ = run_main(monkeypatch)
+
+    debug, rpc_method, access = run.call_args.kwargs["middleware"]
+    assert debug.cls is RequestDebugMiddleware
+    assert rpc_method.cls is RPCMethodMiddleware
+    assert access.cls is AccessJWTMiddleware
+    assert "MAL_HTTP_DEBUG is on" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("value", ["", "0", "false", "No", "off"])
+def test_http_debug_off(monkeypatch, capsys, value):
+    set_http_env(monkeypatch)
+    monkeypatch.setenv("MAL_HTTP_DEBUG", value)
+
+    run, _ = run_main(monkeypatch)
+
+    assert split_access_check(run)["transport"] == "http"
+    assert "MAL_HTTP_DEBUG" not in capsys.readouterr().err
+
+
 def test_bearer_token_is_read_from_file(monkeypatch, tmp_path):
     monkeypatch.setenv("MAL_TRANSPORT", "http")
     token_file = tmp_path / "token"
@@ -352,6 +378,7 @@ def test_empty_transport_setting_means_stdio(monkeypatch):
         ("MAL_CF_ACCESS_TEAM_DOMAIN", "http://team.cloudflareaccess.com"),
         ("MAL_CF_ACCESS_TEAM_DOMAIN", "team.cloudflareaccess.com"),
         ("MAL_CF_ACCESS_AUD", ""),
+        ("MAL_HTTP_DEBUG", "maybe"),
     ],
 )
 def test_invalid_setting_fails_before_server_starts(monkeypatch, name, value):
@@ -414,9 +441,9 @@ def _post_initialize(url):
             id="access-check",
         ),
         pytest.param(
-            {"MAL_HTTP_BEARER_TOKEN": BEARER_TOKEN},
+            {"MAL_HTTP_BEARER_TOKEN": BEARER_TOKEN, "MAL_HTTP_DEBUG": "1"},
             {"/mal": 401, "/mcp": 401},
-            id="bearer-check",
+            id="bearer-check-debug",
         ),
         pytest.param({}, {"/mal": 200, "/mcp": 404}, id="no-auth-check"),
     ],
@@ -478,4 +505,17 @@ def test_http_server_runs_main(tmp_path, auth_env, expected):
         assert line in access_log
     # uvicorn shuts down, then re-raises the signal it caught.
     assert b"Finished server process" in stderr
+    # The debug log has refused requests too, with their bodies.
+    debug_lines = [
+        line
+        for line in stderr.decode().splitlines()
+        if line.startswith("DEBUG:") and " Request {" in line
+    ]
+    if "MAL_HTTP_DEBUG" in auth_env:
+        assert len(debug_lines) == len(expected)
+        record = json.loads(debug_lines[0].partition(" Request ")[2])
+        assert record["path"] == "/mal"
+        assert json.loads(record["body"])["method"] == "initialize"
+    else:
+        assert debug_lines == []
     assert process.returncode == -signal.SIGTERM

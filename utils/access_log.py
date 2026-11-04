@@ -22,6 +22,8 @@ from contextvars import ContextVar
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 from uvicorn.config import LOGGING_CONFIG
 
+from utils.debug_log import LOGGER_NAME as DEBUG_LOGGER_NAME
+
 _request_body: ContextVar[bytearray | None] = ContextVar(
     "request_body", default=None
 )
@@ -92,3 +94,10 @@ LOG_CONFIG = copy.deepcopy(LOGGING_CONFIG)
 LOG_CONFIG["filters"] = {"rpc_method": {"()": RPCMethodFilter}}
 LOG_CONFIG["handlers"]["access"]["filters"] = ["rpc_method"]
 LOG_CONFIG["formatters"]["access"]["fmt"] += " %(rpc_method)s"
+# The full request log (MAL_HTTP_DEBUG) goes to stderr, like uvicorn's own
+# messages. It only has records when RequestDebugMiddleware is installed.
+LOG_CONFIG["loggers"][DEBUG_LOGGER_NAME] = {
+    "handlers": ["default"],
+    "level": "DEBUG",
+    "propagate": False,
+}

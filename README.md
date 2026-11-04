@@ -54,6 +54,8 @@ MAL_HTTP_PATH=/mcp
 # Cloudflare Access check: set both to turn it on, neither to leave it off.
 # MAL_CF_ACCESS_TEAM_DOMAIN=https://<team>.cloudflareaccess.com
 # MAL_CF_ACCESS_AUD=<AUD tag of the Access application>
+# Log every request in full, credentials included (debugging only):
+# MAL_HTTP_DEBUG=1
 ```
 
 Secrets must stay local. Do not commit `.env` or token files.
@@ -88,6 +90,7 @@ MAL_TRANSPORT=http uv run main.py   # http://127.0.0.1:8000/mcp
 | `MAL_HTTP_BEARER_TOKEN_FILE` | unset | File holding that token instead, such as a Docker secret; surrounding whitespace is ignored. Set this or `MAL_HTTP_BEARER_TOKEN`, not both. |
 | `MAL_CF_ACCESS_TEAM_DOMAIN` | unset | Cloudflare Access team domain, such as `https://<team>.cloudflareaccess.com`. |
 | `MAL_CF_ACCESS_AUD` | unset | AUD tag of the Access application protecting the endpoint. |
+| `MAL_HTTP_DEBUG` | off | `1`, `true`, `yes` or `on` logs every request in full (see below); `0`, `false`, `no`, `off` or empty leaves it off. |
 | `FORWARDED_ALLOW_IPS` | `127.0.0.1,::1` | uvicorn's setting: addresses or networks trusted to send `X-Forwarded-For`, so that the access log shows the client's address instead of the proxy's. |
 
 Invalid values, both bearer token settings, or only one of the two `MAL_CF_ACCESS_*` settings, stop the server at startup with a message naming the variable.
@@ -103,6 +106,12 @@ The access log (uvicorn's, on stdout) ends each line with the JSON-RPC method of
 ```text
 INFO:     127.0.0.1:54728 - "POST /mcp HTTP/1.1" 200 OK tools/list
 INFO:     127.0.0.1:54742 - "POST /mcp HTTP/1.1" 200 OK tools/call get_anime
+```
+
+With `MAL_HTTP_DEBUG` on, the server also logs each request as one JSON line on stderr, before any check, so refused requests are included: client address, method, path, query string, every header and the body. **Nothing is redacted**: the log holds the bearer token, Access JWTs, service token secrets and tool arguments, so turn it on only while debugging a client and treat the log as a secret. Requests FastMCP's Host and Origin check refuses are not logged.
+
+```text
+DEBUG:    Request {"client": "127.0.0.1:54728", "method": "POST", "scheme": "http", "http_version": "1.1", "path": "/mcp", "query": "", "headers": [["host", "127.0.0.1:8000"], ...], "body": "{\"jsonrpc\":\"2.0\",...}"}
 ```
 
 ### Behind Cloudflare Tunnel and Access (claude.ai custom connector)

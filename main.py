@@ -11,11 +11,16 @@ from tools.tools import register_tools
 from utils.access_log import LOG_CONFIG, RPCMethodMiddleware
 from utils.bearer_auth import bearer_middleware
 from utils.cloudflare_access import access_middleware
+from utils.debug_log import RequestDebugMiddleware
 
 _TRANSPORTS = ("stdio", "http")
 # RFC 6750 b64token, so that clients can send the token unchanged.
 _BEARER_TOKEN = re.compile(r"[A-Za-z0-9\-._~+/]+=*")
 _MIN_BEARER_TOKEN_LENGTH = 32
+_FLAGS = {
+    **dict.fromkeys(("1", "true", "yes", "on"), True),
+    **dict.fromkeys(("", "0", "false", "no", "off"), False),
+}
 
 
 def create_server() -> FastMCP:
@@ -133,6 +138,18 @@ def _bearer_token() -> str | None:
     return token
 
 
+def _http_debug() -> bool:
+    """Read whether to log every HTTP request in full (MAL_HTTP_DEBUG)."""
+    value = os.getenv("MAL_HTTP_DEBUG", "")
+    try:
+        return _FLAGS[value.strip().lower()]
+    except KeyError:
+        raise ValueError(
+            "MAL_HTTP_DEBUG must be one of 1, true, yes, on, 0, false, no, "
+            f"off, got {value!r}"
+        ) from None
+
+
 def main():
     # Validate the settings before anything starts listening.
     transport = _transport()
@@ -141,6 +158,14 @@ def main():
         access = _access_settings()
         bearer_token = _bearer_token()
         middleware = [Middleware(RPCMethodMiddleware)]
+        if _http_debug():
+            # First, so that requests the checks refuse are logged too.
+            middleware.insert(0, Middleware(RequestDebugMiddleware))
+            print(
+                "MAL_HTTP_DEBUG is on: logging every HTTP request in full, "
+                "including the credentials it carries.",
+                file=sys.stderr,
+            )
         if access:
             middleware.append(access_middleware(*access))
         if bearer_token:
