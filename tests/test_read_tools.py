@@ -43,19 +43,20 @@ DEFAULT_MANGA_LIST_FIELDS = f"{DEFAULT_MANGA_FIELDS},list_status"
 
 PUBLIC_TOOLS = [
     ("get_anime", {"q": "naruto"}),
-    ("get_anime_ranking", {}),
-    ("get_seasonal_anime", {"season": Season.SPRING, "year": 2024}),
     ("get_anime_list", {"username": "someone"}),
     ("get_manga", {"q": "berserk"}),
-    ("get_manga_ranking", {}),
     ("get_manga_list", {"username": "someone"}),
     ("get_forum_boards", {}),
     ("get_forum_topic", {"topic_id": 3}),
     ("get_forum_topics", {}),
 ]
-DETAILS_TOOLS = [
+# Tools with a `fields` argument: MAL returns my_list_status only to a token.
+TOKEN_OPTIONAL_TOOLS = [
     ("get_anime_details", {"anime_id": 1}),
+    ("get_anime_ranking", {}),
+    ("get_seasonal_anime", {"season": Season.SPRING, "year": 2024}),
     ("get_manga_details", {"manga_id": 2}),
+    ("get_manga_ranking", {}),
 ]
 AUTHED_TOOLS = [
     ("get_my_anime_list", {}),
@@ -110,8 +111,9 @@ class TestPublicTools:
     ):
         mal.call(name, ranking_type=ranking_type, limit=600, offset=-1)
 
-        mal.client.get_public.assert_awaited_once_with(
+        mal.client.get_authed.assert_awaited_once_with(
             endpoint,
+            "test-token",
             params={
                 "ranking_type": ranking_type,
                 "limit": 500,
@@ -128,8 +130,9 @@ class TestPublicTools:
             sort=SeasonSort.SCORE,
         )
 
-        mal.client.get_public.assert_awaited_once_with(
+        mal.client.get_authed.assert_awaited_once_with(
             "/anime/season/2025/winter",
+            "test-token",
             params={
                 "limit": 10,
                 "offset": 0,
@@ -236,7 +239,7 @@ class TestPublicTools:
         assert result["error"] == "MAL is down"
 
 
-class TestDetailsTools:
+class TestTokenOptionalTools:
     @pytest.mark.parametrize(
         ("name", "id_arg", "endpoint", "fields"),
         [
@@ -254,7 +257,7 @@ class TestDetailsTools:
         )
         mal.client.get_public.assert_not_awaited()
 
-    @pytest.mark.parametrize(("name", "kwargs"), DETAILS_TOOLS)
+    @pytest.mark.parametrize(("name", "kwargs"), TOKEN_OPTIONAL_TOOLS)
     def test_details_fall_back_to_public_without_login(
         self, mal, monkeypatch, name, kwargs
     ):
@@ -270,7 +273,7 @@ class TestDetailsTools:
         assert result == {"id": 1}
         mal.client.get_authed.assert_not_awaited()
 
-    @pytest.mark.parametrize(("name", "kwargs"), DETAILS_TOOLS)
+    @pytest.mark.parametrize(("name", "kwargs"), TOKEN_OPTIONAL_TOOLS)
     def test_mal_error_is_returned_as_payload(self, mal, name, kwargs):
         mal.client.get_authed.side_effect = MALAPIError("MAL is down")
 
@@ -581,7 +584,7 @@ class TestGetWatchQueue:
 
 
 MANGA_FIELD_TOOLS = [
-    ("get_manga_ranking", "get_public"),
+    ("get_manga_ranking", "get_authed"),
     ("get_my_manga_list", "get_authed"),
 ]
 
@@ -612,12 +615,12 @@ class TestDefaultFields:
         [
             ("get_anime", {"q": "x"}, "get_public", DEFAULT_ANIME_FIELDS),
             ("get_manga", {"q": "x"}, "get_public", DEFAULT_MANGA_FIELDS),
-            ("get_anime_ranking", {}, "get_public", DEFAULT_ANIME_FIELDS),
-            ("get_manga_ranking", {}, "get_public", DEFAULT_MANGA_FIELDS),
+            ("get_anime_ranking", {}, "get_authed", DEFAULT_ANIME_FIELDS),
+            ("get_manga_ranking", {}, "get_authed", DEFAULT_MANGA_FIELDS),
             (
                 "get_seasonal_anime",
                 {"season": Season.SPRING, "year": 2024},
-                "get_public",
+                "get_authed",
                 DEFAULT_ANIME_FIELDS,
             ),
             (

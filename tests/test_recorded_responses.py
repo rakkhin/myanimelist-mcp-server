@@ -55,13 +55,13 @@ PASSTHROUGH_TOOLS = [
     (
         "get_anime_ranking",
         {"ranking_type": "all", "limit": 3, "fields": ["mean", "rank"]},
-        "get_public",
+        "get_authed",
         "get_anime_ranking.json",
     ),
     (
         "get_seasonal_anime",
         {"season": "fall", "year": 2025, "sort": "anime_score", "limit": 3},
-        "get_public",
+        "get_authed",
         "get_seasonal_anime.json",
     ),
     (
@@ -97,7 +97,7 @@ PASSTHROUGH_TOOLS = [
     (
         "get_manga_ranking",
         {"ranking_type": "all", "limit": 3, "fields": ["authors", "mean"]},
-        "get_public",
+        "get_authed",
         "get_manga_ranking.json",
     ),
     (
