@@ -173,6 +173,22 @@ def register_tools(mcp: FastMCP):
         expire_access_token(access_token)
         return await request(await token())
 
+    async def get_details(endpoint: str, params: dict[str, object]) -> dict:
+        """GET a public endpoint, authenticated when the user is logged in.
+
+        MAL only returns my_list_status for requests made with a user token.
+        Without a usable token the public request still works, minus that
+        field.
+        """
+        try:
+            return await authed(
+                lambda access_token: client().get_authed(
+                    endpoint, access_token, params=params
+                )
+            )
+        except MALAuthError:
+            return await client().get_public(endpoint, params=params)
+
     async def own_anime_list(status: AnimeStatus) -> list[dict]:
         # Fields the episode schedule tools need; MAL always adds id, title.
         fields = _with_list_status(
@@ -219,8 +235,8 @@ def register_tools(mcp: FastMCP):
         try:
             fields_param = build_fields(None, AnimeFields)
             return _tool_result(
-                await client().get_public(
-                    f"/anime/{anime_id}", params={"fields": fields_param}
+                await get_details(
+                    f"/anime/{anime_id}", {"fields": fields_param}
                 )
             )
         except _TOOL_ERRORS as e:
@@ -333,8 +349,8 @@ def register_tools(mcp: FastMCP):
         try:
             fields_param = build_fields(None, MangaFields)
             return _tool_result(
-                await client().get_public(
-                    f"/manga/{manga_id}", params={"fields": fields_param}
+                await get_details(
+                    f"/manga/{manga_id}", {"fields": fields_param}
                 )
             )
         except _TOOL_ERRORS as e:

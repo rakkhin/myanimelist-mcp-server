@@ -49,7 +49,7 @@ PASSTHROUGH_TOOLS = [
     (
         "get_anime_details",
         {"anime_id": 39534},
-        "get_public",
+        "get_authed",
         "get_anime_details_39534.json",
     ),
     (
@@ -91,7 +91,7 @@ PASSTHROUGH_TOOLS = [
     (
         "get_manga_details",
         {"manga_id": 100035},
-        "get_public",
+        "get_authed",
         "get_manga_details_100035.json",
     ),
     (

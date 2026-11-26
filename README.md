@@ -162,7 +162,7 @@ Every tool returns its data as a single text block, without structured content: 
 ### Anime
 
 - `get_anime`: search anime.
-- `get_anime_details`: fetch anime details by MAL ID.
+- `get_anime_details`: fetch anime details by MAL ID (includes your list status when logged in).
 - `get_anime_ranking`: fetch anime rankings.
 - `get_seasonal_anime`: fetch anime by year/season.
 - `get_anime_list`: fetch a user's public anime list (status filter optional), including each entry's status, score and progress.
@@ -174,7 +174,7 @@ Every tool returns its data as a single text block, without structured content: 
 ### Manga
 
 - `get_manga`: search manga.
-- `get_manga_details`: fetch manga details by MAL ID.
+- `get_manga_details`: fetch manga details by MAL ID (includes your list status when logged in).
 - `get_manga_ranking`: fetch manga rankings.
 - `get_manga_list`: fetch a user's public manga list (status filter optional), including each entry's status, score and progress.
 - `get_my_manga_list`: **auth required**; fetch the authenticated user's manga list, including each entry's status, score and progress.
