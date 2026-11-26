@@ -43,17 +43,20 @@ DEFAULT_MANGA_LIST_FIELDS = f"{DEFAULT_MANGA_FIELDS},list_status"
 
 PUBLIC_TOOLS = [
     ("get_anime", {"q": "naruto"}),
-    ("get_anime_details", {"anime_id": 1}),
-    ("get_anime_ranking", {}),
-    ("get_seasonal_anime", {"season": Season.SPRING, "year": 2024}),
     ("get_anime_list", {"username": "someone"}),
     ("get_manga", {"q": "berserk"}),
-    ("get_manga_details", {"manga_id": 2}),
-    ("get_manga_ranking", {}),
     ("get_manga_list", {"username": "someone"}),
     ("get_forum_boards", {}),
     ("get_forum_topic", {"topic_id": 3}),
     ("get_forum_topics", {}),
+]
+# Tools with a `fields` argument: MAL returns my_list_status only to a token.
+TOKEN_OPTIONAL_TOOLS = [
+    ("get_anime_details", {"anime_id": 1}),
+    ("get_anime_ranking", {}),
+    ("get_seasonal_anime", {"season": Season.SPRING, "year": 2024}),
+    ("get_manga_details", {"manga_id": 2}),
+    ("get_manga_ranking", {}),
 ]
 AUTHED_TOOLS = [
     ("get_my_anime_list", {}),
@@ -87,22 +90,6 @@ class TestPublicTools:
         )
 
     @pytest.mark.parametrize(
-        ("name", "id_arg", "endpoint", "fields"),
-        [
-            ("get_anime_details", "anime_id", "/anime/5", ALL_ANIME_FIELDS),
-            ("get_manga_details", "manga_id", "/manga/5", ALL_MANGA_FIELDS),
-        ],
-    )
-    def test_details_request_all_fields(
-        self, mal, name, id_arg, endpoint, fields
-    ):
-        mal.call(name, **{id_arg: 5})
-
-        mal.client.get_public.assert_awaited_once_with(
-            endpoint, params={"fields": fields}
-        )
-
-    @pytest.mark.parametrize(
         ("name", "ranking_type", "endpoint", "default_fields"),
         [
             (
@@ -124,8 +111,9 @@ class TestPublicTools:
     ):
         mal.call(name, ranking_type=ranking_type, limit=600, offset=-1)
 
-        mal.client.get_public.assert_awaited_once_with(
+        mal.client.get_authed.assert_awaited_once_with(
             endpoint,
+            "test-token",
             params={
                 "ranking_type": ranking_type,
                 "limit": 500,
@@ -142,8 +130,9 @@ class TestPublicTools:
             sort=SeasonSort.SCORE,
         )
 
-        mal.client.get_public.assert_awaited_once_with(
+        mal.client.get_authed.assert_awaited_once_with(
             "/anime/season/2025/winter",
+            "test-token",
             params={
                 "limit": 10,
                 "offset": 0,
@@ -244,6 +233,49 @@ class TestPublicTools:
     @pytest.mark.parametrize(("name", "kwargs"), PUBLIC_TOOLS)
     def test_mal_error_is_returned_as_payload(self, mal, name, kwargs):
         mal.client.get_public.side_effect = MALAPIError("MAL is down")
+
+        result = mal.call(name, **kwargs)
+
+        assert result["error"] == "MAL is down"
+
+
+class TestTokenOptionalTools:
+    @pytest.mark.parametrize(
+        ("name", "id_arg", "endpoint", "fields"),
+        [
+            ("get_anime_details", "anime_id", "/anime/5", ALL_ANIME_FIELDS),
+            ("get_manga_details", "manga_id", "/manga/5", ALL_MANGA_FIELDS),
+        ],
+    )
+    def test_details_request_all_fields_with_the_user_token(
+        self, mal, name, id_arg, endpoint, fields
+    ):
+        mal.call(name, **{id_arg: 5})
+
+        mal.client.get_authed.assert_awaited_once_with(
+            endpoint, "test-token", params={"fields": fields}
+        )
+        mal.client.get_public.assert_not_awaited()
+
+    @pytest.mark.parametrize(("name", "kwargs"), TOKEN_OPTIONAL_TOOLS)
+    def test_details_fall_back_to_public_without_login(
+        self, mal, monkeypatch, name, kwargs
+    ):
+        monkeypatch.setattr(
+            tools,
+            "get_mal_access_token",
+            AsyncMock(side_effect=MALAuthError("Call 'mal_auth_login' first")),
+        )
+        mal.client.get_public.return_value = {"id": 1}
+
+        result = mal.call(name, **kwargs)
+
+        assert result == {"id": 1}
+        mal.client.get_authed.assert_not_awaited()
+
+    @pytest.mark.parametrize(("name", "kwargs"), TOKEN_OPTIONAL_TOOLS)
+    def test_mal_error_is_returned_as_payload(self, mal, name, kwargs):
+        mal.client.get_authed.side_effect = MALAPIError("MAL is down")
 
         result = mal.call(name, **kwargs)
 
@@ -552,7 +584,7 @@ class TestGetWatchQueue:
 
 
 MANGA_FIELD_TOOLS = [
-    ("get_manga_ranking", "get_public"),
+    ("get_manga_ranking", "get_authed"),
     ("get_my_manga_list", "get_authed"),
 ]
 
@@ -583,12 +615,12 @@ class TestDefaultFields:
         [
             ("get_anime", {"q": "x"}, "get_public", DEFAULT_ANIME_FIELDS),
             ("get_manga", {"q": "x"}, "get_public", DEFAULT_MANGA_FIELDS),
-            ("get_anime_ranking", {}, "get_public", DEFAULT_ANIME_FIELDS),
-            ("get_manga_ranking", {}, "get_public", DEFAULT_MANGA_FIELDS),
+            ("get_anime_ranking", {}, "get_authed", DEFAULT_ANIME_FIELDS),
+            ("get_manga_ranking", {}, "get_authed", DEFAULT_MANGA_FIELDS),
             (
                 "get_seasonal_anime",
                 {"season": Season.SPRING, "year": 2024},
-                "get_public",
+                "get_authed",
                 DEFAULT_ANIME_FIELDS,
             ),
             (

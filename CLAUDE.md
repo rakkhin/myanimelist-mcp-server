@@ -56,7 +56,7 @@ The official docs are wrong or silent on several of these:
 
 - User lists only include `list_status` (status, score, progress) when it is in `fields`; node fields are listed at the top level of `fields` (no `anime{...}` wrapper).
 - Manga `authors` only carry names when requested as `authors{first_name,last_name}`.
-- `my_list_status` is only returned for requests made with a user token.
+- `my_list_status` is only returned for requests made with a user token. The details, ranking and seasonal tools (every public tool with a `fields` argument) therefore send the user's token when logged in (`get_public_or_authed` in `register_tools`) and fall back to a public request otherwise.
 - Deletes return 200 with `[]` (the docs show `null`), even for a title that is not on the list; 404 with `{"message":"","error":"not_found"}` only for an id that does not exist.
 - The news RSS puts the thumbnail URL in the `media:thumbnail` element text, not a `url` attribute.
 - `GET /forum/topics` without a filter such as `q` times out on MAL's side.
